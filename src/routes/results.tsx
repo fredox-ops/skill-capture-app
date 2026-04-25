@@ -375,19 +375,30 @@ function ResultsContent({
                     : pct >= 40
                       ? "bg-warning/15 text-[color:oklch(0.45_0.13_55)]"
                       : "bg-success/10 text-success";
+              const esco = lookupEsco(s.isco_code);
               return (
                 <motion.span
                   key={`${s.isco_code}-${idx}`}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.04, duration: 0.25 }}
-                  className="inline-flex items-center gap-2 rounded-full bg-[color:var(--primary-soft)] px-4 py-2 text-sm font-semibold text-[color:var(--primary-deep)] shadow-[var(--shadow-card)]"
-                  title={s.automation_source ? `${copy.sourceLabel}: ${s.automation_source}` : undefined}
+                  className="inline-flex flex-wrap items-center gap-2 rounded-full bg-[color:var(--primary-soft)] px-4 py-2 text-sm font-semibold text-[color:var(--primary-deep)] shadow-[var(--shadow-card)]"
+                  title={`${esco.esco_label_en}${s.automation_source ? ` · ${copy.sourceLabel}: ${s.automation_source}` : ""}`}
                 >
                   {s.name}
                   <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold tracking-wide text-[color:var(--primary-deep)]/80">
                     ISCO {s.isco_code}
                   </span>
+                  <a
+                    href={esco.esco_uri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold tracking-wide text-[color:var(--primary-deep)]/80 hover:bg-white"
+                  >
+                    ESCO {esco.esco_code}
+                    <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
                   {pct !== null && (
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone}`}>
                       🤖 {pct}%
@@ -400,7 +411,7 @@ function ResultsContent({
           <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Database className="h-3 w-3" />
             <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
-            <span>Frey &amp; Osborne (2017)</span>
+            <span>Frey &amp; Osborne (2017) · ESCO v1.2</span>
           </p>
         </Section>
 
