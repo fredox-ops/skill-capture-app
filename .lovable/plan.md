@@ -1,81 +1,60 @@
-# Deploy `analyze-skills` to your personal Supabase project
 
-## Why the error happens
-
-Your app talks to `vlieoxikhjfnaosumvzi.supabase.co` (your personal Supabase project, hardcoded in `src/integrations/supabase/client.ts`).
-Lovable can only deploy edge functions to its own managed project (`pfdtywytvvzlnkruaido`), so the `analyze-skills` function does not exist on your personal project — that's why every call returns **"Failed to fetch"**.
-
-Until the function is deployed to **your** project, the chat will keep failing.
+## Goal
+Turn the single-shot mic UI into a back-and-forth Arabic chat with spoken AI replies, and gate the "Analyze My Skills" action behind a separate, intentional button.
 
 ---
 
-## What I'll do in code (after you approve)
+## 1. Multi-turn conversational flow (mocked, no extra AI calls)
 
-### 1. Fix `supabase/config.toml`
-Currently it has `verify_jwt = true` for `analyze-skills`, but the frontend calls it with the anon key only (no user JWT in the request). I'll change it to:
+**Where:** `src/routes/index.tsx`
 
-```toml
-[functions.analyze-skills]
-verify_jwt = false
-```
+- Replace the current "got it, ready to analyze?" auto-reply with a rotating bank of empathetic Arabic (Darija) follow-up questions, e.g.:
+  - "مزيان! شنو هما الحوايج اللي كتعرف تصاوب بيدك؟"
+  - "شحال هادي وأنت كدير هاد الخدمة؟"
+  - "واش خدمتي بوحدك ولا مع ناس أخرين؟"
+  - "شنو هي أصعب حاجة فهاد الخدمة بالنسبة ليك؟"
+  - "عاود لي على آخر يوم خدمت فيه — كيفاش دازت النهار؟"
+- Keep an in-memory `questionIndex` so each user message gets the next question (cycling). No real AI / network — pure mock for now.
+- After each user voice message: push the user bubble, then a 500–800 ms delayed bot bubble with the next Arabic follow-up, and feed that bubble into TTS (#2).
+- Initial greeting bubble also switches to Darija ("أهلا 👋 أنا Sawt-Net. عاود لي على الخدمة اللي كتدير كل نهار.").
 
-So the function actually accepts requests from the browser.
+## 2. Text-to-Speech for bot bubbles
 
-### 2. Make the edge function fail gracefully
-Right now if the AI returns malformed data or Tavily times out the user just sees "Failed to fetch". I'll:
-- Wrap Tavily calls in `Promise.allSettled` with a 6s timeout each so a slow Tavily search can't hang the function.
-- Return cleaner JSON error messages (so the frontend toast tells you *why* it failed instead of "Failed to fetch").
+**New file:** `src/hooks/useSpeech.tsx`
+- Thin wrapper around `window.speechSynthesis`.
+- Exports `speak(text, lang)`, `cancel()`, and reactive `speakingId` state.
+- Picks an Arabic voice: prefer `ar-MA`, fall back to any `ar-*` voice from `getVoices()`, then default. Handles the async voice-load (`onvoiceschanged`).
+- Each call accepts an `id` so the UI can highlight which bubble is currently speaking.
 
-### 3. Update `DEPLOY_EDGE_FUNCTION.md`
-Refresh the deploy guide so it matches the new `verify_jwt = false` setting and remove the `--no-verify-jwt` CLI flag (it'll already be in `config.toml`).
+**Wiring in `src/routes/index.tsx`:**
+- When a new bot bubble is appended, call `speak(bubble.text, "ar-MA", bubble.id)`.
+- On unmount or new user input → `cancel()` so we don't stack utterances.
 
----
+**Visual indicator:**
+- When `speakingId === bubble.id`, render an animated 3-bar audio-wave next to the bot bubble (small inline SVG/CSS, three `<span>`s with staggered scaleY animations using existing Tailwind keyframes, no new dependency).
+- Add a tiny mute/unmute toggle in the header (next to History/Settings) so users can silence TTS — store preference in `localStorage`.
 
-## What you'll need to do (one-time, ~3 minutes)
+## 3. Separate, gated "Analyze My Skills" button
 
-I cannot run these for you — they have to be done from your machine against your own Supabase account.
+**Where:** `src/routes/index.tsx`
 
-```bash
-# 1. Install CLI (if not installed)
-brew install supabase/tap/supabase     # macOS
-# or: npm i -g supabase                # any OS
+- Remove the big in-flow "Analyze My Skills" button from the bottom action area. The bottom area becomes mic-only, always.
+- Add a sticky **Floating Action Button (FAB)** anchored bottom-right above the mic area (`fixed bottom-28 right-5`, respects mobile shell).
+  - Icon: `Sparkles` + label "حلّل مهاراتي".
+  - Disabled state (greyed, `opacity-40`, no shadow) until the user has sent **≥ 2** messages (`bubbles.filter(b => b.from === "user").length >= 2`).
+  - Active state: gradient/primary background, gentle pulse to draw attention.
+- On click: run the existing `startAnalysis()` logic, but concatenate **all** user messages (not just the last) into the transcript sent to the edge function — gives a richer multi-turn signal.
+- While analyzing: FAB shows spinner + step label as a small toast / inline caption under the FAB.
 
-# 2. Login to Supabase
-supabase login
-
-# 3. From the project root:
-supabase link --project-ref vlieoxikhjfnaosumvzi
-
-# 4. Set secrets on YOUR project
-supabase secrets set LOVABLE_API_KEY=<your_lovable_api_key>
-supabase secrets set TAVILY_API_KEY=<your_tavily_key>
-
-# 5. Deploy
-supabase functions deploy analyze-skills
-```
-
-After step 5, refresh the app and the mic flow will work end-to-end.
-
-> ⚠️ **Rotate your Tavily key first** — `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` was shared in chat. Get a new one at tavily.com → Account → API Keys, then use the new value in step 4.
-
-> 🔑 **LOVABLE_API_KEY** — get it from Lovable → top-right avatar → **Workspace Settings → API Keys**.
+**Header:** leave History + Settings as-is. Add the TTS mute toggle here. The FAB stays bottom-right per spec (cleaner on mobile than a header button).
 
 ---
 
-## Files I'll edit
+## Files touched
+- `src/routes/index.tsx` — multi-turn flow, FAB, remove inline analyze button, wire TTS, mute toggle, multi-message transcript.
+- `src/hooks/useSpeech.tsx` — **new**, speechSynthesis wrapper with Arabic voice selection + speakingId.
+- (No backend, schema, or edge-function changes.)
 
-- `supabase/config.toml` — flip `verify_jwt` to `false`
-- `supabase/functions/analyze-skills/index.ts` — Tavily timeouts + cleaner errors
-- `DEPLOY_EDGE_FUNCTION.md` — updated steps
-
-## Files you'll touch
-
-- Nothing in code. Just the 5 CLI commands above.
-
----
-
-## After deploy — how to verify
-
-1. Open the app, sign in, hold the mic, say a sentence in Darija.
-2. Network tab: the `POST /functions/v1/analyze-skills` request should return **200** with `skills`, `ai_risk_score`, `opportunities[].listings`.
-3. If it fails, copy the JSON error body — it'll now tell us exactly what went wrong (AI key missing, Tavily down, etc.) instead of "Failed to fetch".
+## Out of scope
+- Real AI-driven follow-ups (current task says "mock conversational flow"). Easy to upgrade later by pointing the follow-up generator at a new edge function.
+- Persisting multi-turn conversations to `voice_sessions` (still saves the concatenated transcript on analyze, same as today).
