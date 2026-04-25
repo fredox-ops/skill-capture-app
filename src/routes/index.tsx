@@ -453,6 +453,30 @@ function ChatScreen() {
         </button>
 
         <div className="mx-auto w-full max-w-3xl px-5 pb-6 pt-6 sm:px-8">
+          {/* Per-turn language picker — tap before recording so the recognizer
+              hears the language you're actually about to speak. */}
+          <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+            {(Object.keys(RECOGNITION_LANG_LABELS) as RecognitionLang[]).map((code) => {
+              const active = lang === code;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => pickLang(code)}
+                  disabled={listening || analyzing}
+                  className={`rounded-full px-3 py-1 text-[11px] font-medium transition-all ${
+                    active
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted text-muted-foreground hover:bg-muted/70"
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                  aria-pressed={active}
+                  aria-label={`Speak in ${RECOGNITION_LANG_LABELS[code]}`}
+                >
+                  {RECOGNITION_LANG_LABELS[code]}
+                </button>
+              );
+            })}
+          </div>
           <AnimatePresence mode="wait">
             <motion.div
               key="mic"
