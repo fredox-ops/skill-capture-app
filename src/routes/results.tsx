@@ -352,7 +352,7 @@ function ResultsContent({
           </button>
 
           <div className="flex flex-wrap gap-2">
-            {analysis.skills.map((s, idx) => {
+            {enrichedSkills.map((s, idx) => {
               const pct =
                 typeof s.automation_probability === "number"
                   ? Math.round(s.automation_probability * 100)
@@ -387,13 +387,11 @@ function ResultsContent({
               );
             })}
           </div>
-          {analysis.signals?.automation?.source_short && (
-            <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Database className="h-3 w-3" />
-              <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
-              <span>{analysis.signals.automation.source_short}</span>
-            </p>
-          )}
+          <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Database className="h-3 w-3" />
+            <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
+            <span>Frey &amp; Osborne (2017)</span>
+          </p>
         </Section>
 
         <Section
