@@ -20,6 +20,7 @@ import { MobileShell } from "@/components/MobileShell";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AudioWave } from "@/components/AudioWave";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
+import { CountrySwitcher } from "@/components/CountrySwitcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import {
@@ -492,6 +493,7 @@ function ChatScreen() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <CountrySwitcher />
             {tts.supported && (
               <button
                 onClick={tts.toggleMute}
