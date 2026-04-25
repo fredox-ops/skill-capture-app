@@ -85,18 +85,18 @@ export function useSpeech() {
       }
 
       try {
-        let base64 = cacheRef.current.get(text);
-        if (!base64) {
+        let cached = cacheRef.current.get(text);
+        if (!cached) {
           const { data, error } = await supabase.functions.invoke("tts", {
             body: { text },
           });
           if (error) throw error;
           if (!data?.audio) throw new Error(data?.error ?? "No audio returned");
-          base64 = data.audio as string;
-          cacheRef.current.set(text, base64);
+          cached = { audio: data.audio as string, mime: (data.mime as string) ?? "audio/mpeg" };
+          cacheRef.current.set(text, cached);
         }
 
-        const audio = new Audio(`data:audio/mpeg;base64,${base64}`);
+        const audio = new Audio(`data:${cached.mime};base64,${cached.audio}`);
         audioRef.current = audio;
         audio.onplay = () => setSpeakingId(id);
         audio.onended = () => setSpeakingId((curr) => (curr === id ? null : curr));
