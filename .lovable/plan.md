@@ -1,42 +1,81 @@
-## Context
+# Deploy `analyze-skills` to your personal Supabase project
 
-The Web Speech API is **already wired up** in this project:
+## Why the error happens
 
-- `src/hooks/useSpeechRecognition.tsx` — uses `window.SpeechRecognition || window.webkitSpeechRecognition`, supports `ar-MA`, `fr-FR`, `hi-IN`, `en-US`, exposes `start/stop/reset` plus `transcript`, `interim`, `listening`, `supported`, `error`.
-- `src/routes/index.tsx` — wires the mic button, renders the live + final bubble, stores transcript in `bubbles` state, and POSTs it to the `analyze-skills` edge function.
-- Settings (`SettingsModal`) lets the user pick **Country** (Morocco/India) and **Language** (Arabic/English/French). `getRecognitionLang()` already returns `ar-MA` when language is "Arabic" → **Darija works today** if the user picks Arabic.
+Your app talks to `vlieoxikhjfnaosumvzi.supabase.co` (your personal Supabase project, hardcoded in `src/integrations/supabase/client.ts`).
+Lovable can only deploy edge functions to its own managed project (`pfdtywytvvzlnkruaido`), so the `analyze-skills` function does not exist on your personal project — that's why every call returns **"Failed to fetch"**.
 
-The remaining gaps vs. your request are: (1) the button is tap-to-toggle, not push-and-hold, and (2) Darija is only selected when language="Arabic" — a Morocco user who left language on English/French won't get Darija.
+Until the function is deployed to **your** project, the chat will keep failing.
 
-## Changes
+---
 
-### 1. `src/hooks/useSpeechRecognition.tsx`
-- Strengthen Darija handling in `getRecognitionLang()`: if `country === "Morocco"` AND language is English/French, **also default to `ar-MA`** so Darija is recognized even when the UI language differs. (Arabic + Morocco still → `ar-MA`. India still → `hi-IN`. Other cases unchanged.)
-  - Rationale: Web Speech `lang` controls only the recognizer, not the UI. Setting `ar-MA` lets Chrome's recognizer accept Darija/Arabic phonetics regardless of the chat UI language.
-- No API changes to the hook's return shape.
+## What I'll do in code (after you approve)
 
-### 2. `src/routes/index.tsx` — push-and-hold mic button
-Replace the current `onClick` toggle on the mic `<button>` with press-and-hold gestures that work on **mouse, touch, and pointer**:
+### 1. Fix `supabase/config.toml`
+Currently it has `verify_jwt = true` for `analyze-skills`, but the frontend calls it with the anon key only (no user JWT in the request). I'll change it to:
 
-- Add a small `holdingRef` + handlers:
-  - `onPointerDown` → `start()` (call `e.preventDefault()` to avoid double-fire on touch devices).
-  - `onPointerUp` / `onPointerLeave` / `onPointerCancel` → `stopAndPush()`.
-  - Fallback `onTouchStart` / `onTouchEnd` for older iOS Safari that doesn't fully support pointer events on buttons.
-  - Keyboard a11y: `onKeyDown` (Space) starts, `onKeyUp` (Space) stops — so the button stays usable without a pointer.
-- Update the helper label from "Tap and speak your skills" → "**Hold to speak**" (and "Listening… release to send" while active).
-- Keep the existing `Square`/`Mic`/`MicOff` icon swap logic — it already keys off `listening`.
-- `stopAndPush()` already grabs `transcript`, pushes a user bubble, and triggers the bot follow-up — no change to that logic. The transcript remains stored in `bubbles` and is what's sent to `analyze-skills` via `lastUserMessage`.
+```toml
+[functions.analyze-skills]
+verify_jwt = false
+```
 
-### 3. (Optional, subtle) Show the active recognizer language under the mic
-Add a tiny line like `Language: العربية (Darija)` / `English` / etc. below the helper text, so the user knows which model is listening. Pure UI; uses the value already returned by `getRecognitionLang()`.
+So the function actually accepts requests from the browser.
 
-## Notes / non-changes
+### 2. Make the edge function fail gracefully
+Right now if the AI returns malformed data or Tavily times out the user just sees "Failed to fetch". I'll:
+- Wrap Tavily calls in `Promise.allSettled` with a 6s timeout each so a slow Tavily search can't hang the function.
+- Return cleaner JSON error messages (so the frontend toast tells you *why* it failed instead of "Failed to fetch").
 
-- **No edge-function changes.** The transcript (already stored in component state) is already sent to `analyze-skills` — your request explicitly said "save it so we can send it later", and that wiring already exists.
-- **No new dependencies.** Web Speech API is browser-native; works in Chrome/Edge/Android Chrome. Safari/Firefox will hit the existing `!supported` branch and show `MicOff` + the "not supported" message.
-- **Darija caveat (worth knowing):** Chrome's `ar-MA` model handles Modern Standard Arabic well and accepts a lot of Darija, but accuracy varies by speaker and code-switching with French. The hook already lets a user override via Settings → Language if they prefer pure English/French recognition.
+### 3. Update `DEPLOY_EDGE_FUNCTION.md`
+Refresh the deploy guide so it matches the new `verify_jwt = false` setting and remove the `--no-verify-jwt` CLI flag (it'll already be in `config.toml`).
 
-## Files touched
+---
 
-- `src/hooks/useSpeechRecognition.tsx` — tweak `getRecognitionLang()` only.
-- `src/routes/index.tsx` — swap the mic button's `onClick` for press-and-hold pointer/touch/keyboard handlers + updated helper text.
+## What you'll need to do (one-time, ~3 minutes)
+
+I cannot run these for you — they have to be done from your machine against your own Supabase account.
+
+```bash
+# 1. Install CLI (if not installed)
+brew install supabase/tap/supabase     # macOS
+# or: npm i -g supabase                # any OS
+
+# 2. Login to Supabase
+supabase login
+
+# 3. From the project root:
+supabase link --project-ref vlieoxikhjfnaosumvzi
+
+# 4. Set secrets on YOUR project
+supabase secrets set LOVABLE_API_KEY=<your_lovable_api_key>
+supabase secrets set TAVILY_API_KEY=<your_tavily_key>
+
+# 5. Deploy
+supabase functions deploy analyze-skills
+```
+
+After step 5, refresh the app and the mic flow will work end-to-end.
+
+> ⚠️ **Rotate your Tavily key first** — `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` was shared in chat. Get a new one at tavily.com → Account → API Keys, then use the new value in step 4.
+
+> 🔑 **LOVABLE_API_KEY** — get it from Lovable → top-right avatar → **Workspace Settings → API Keys**.
+
+---
+
+## Files I'll edit
+
+- `supabase/config.toml` — flip `verify_jwt` to `false`
+- `supabase/functions/analyze-skills/index.ts` — Tavily timeouts + cleaner errors
+- `DEPLOY_EDGE_FUNCTION.md` — updated steps
+
+## Files you'll touch
+
+- Nothing in code. Just the 5 CLI commands above.
+
+---
+
+## After deploy — how to verify
+
+1. Open the app, sign in, hold the mic, say a sentence in Darija.
+2. Network tab: the `POST /functions/v1/analyze-skills` request should return **200** with `skills`, `ai_risk_score`, `opportunities[].listings`.
+3. If it fails, copy the JSON error body — it'll now tell us exactly what went wrong (AI key missing, Tavily down, etc.) instead of "Failed to fetch".
