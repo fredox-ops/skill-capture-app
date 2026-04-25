@@ -440,6 +440,11 @@ function ResultsContent({
             />
           </div>
           <p className="mt-3 text-xs text-muted-foreground">{copy.riskFootnote}</p>
+          <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Database className="h-3 w-3" />
+            <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
+            <span>Frey &amp; Osborne (2017)</span>
+          </p>
         </Section>
 
         <Section
