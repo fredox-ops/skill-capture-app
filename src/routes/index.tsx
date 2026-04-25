@@ -21,6 +21,7 @@ import {
   useSpeechRecognition,
   getRecognitionLang,
   RECOGNITION_LANG_LABELS,
+  type RecognitionLang,
 } from "@/hooks/useSpeechRecognition";
 import { useSpeech } from "@/hooks/useSpeech";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,18 +48,55 @@ interface Bubble {
   text: string;
 }
 
-const GREETING_AR =
-  "أهلا 👋 أنا Sawt-Net. عاود لي على الخدمة اللي كتدير كل نهار، وأنا غادي نعاونك تلقا فرص خدمة حقيقية.";
+const GREETINGS: Record<RecognitionLang, string> = {
+  "ar-MA":
+    "أهلا 👋 أنا Sawt-Net. عاود لي على الخدمة اللي كتدير كل نهار، وأنا غادي نعاونك تلقا فرص خدمة حقيقية.",
+  "en-US":
+    "Hi 👋 I'm Sawt-Net. Tell me about the work you do every day, and I'll help you find real job opportunities.",
+  "fr-FR":
+    "Salut 👋 Je suis Sawt-Net. Raconte-moi le travail que tu fais chaque jour, et je vais t'aider à trouver de vraies opportunités.",
+  "hi-IN":
+    "नमस्ते 👋 मैं Sawt-Net हूँ। मुझे बताइए आप रोज़ क्या काम करते हैं — मैं आपके लिए असली नौकरी के मौके ढूंढूंगा।",
+};
 
-const FOLLOW_UP_QUESTIONS_AR = [
-  "مزيان! شنو هما الحوايج اللي كتعرف تصاوب بيدك؟",
-  "شحال هادي وأنت كدير هاد الخدمة؟",
-  "واش كتخدم بوحدك ولا مع ناس أخرين؟",
-  "شنو هي أصعب حاجة فهاد الخدمة بالنسبة ليك؟",
-  "عاود لي على آخر يوم خدمت فيه — كيفاش دازت النهار؟",
-  "واش كتستعمل شي ماكينات ولا أدوات خاصة؟",
-  "شنو هي الحاجة اللي كتعجبك أكثر فخدمتك؟",
-];
+const FOLLOW_UPS: Record<RecognitionLang, string[]> = {
+  "ar-MA": [
+    "مزيان! شنو هما الحوايج اللي كتعرف تصاوب بيدك؟",
+    "شحال هادي وأنت كدير هاد الخدمة؟",
+    "واش كتخدم بوحدك ولا مع ناس أخرين؟",
+    "شنو هي أصعب حاجة فهاد الخدمة بالنسبة ليك؟",
+    "عاود لي على آخر يوم خدمت فيه — كيفاش دازت النهار؟",
+    "واش كتستعمل شي ماكينات ولا أدوات خاصة؟",
+    "شنو هي الحاجة اللي كتعجبك أكثر فخدمتك؟",
+  ],
+  "en-US": [
+    "Nice! What kinds of things can you make or fix with your hands?",
+    "How long have you been doing this kind of work?",
+    "Do you work alone or with other people?",
+    "What's the hardest part of your job?",
+    "Walk me through your last working day — how did it go?",
+    "Do you use any specific tools or machines?",
+    "What do you enjoy most about what you do?",
+  ],
+  "fr-FR": [
+    "Super ! Quelles sont les choses que tu sais faire ou réparer de tes mains ?",
+    "Depuis combien de temps tu fais ce travail ?",
+    "Tu travailles seul ou avec d'autres personnes ?",
+    "Qu'est-ce qui est le plus difficile dans ton travail ?",
+    "Raconte-moi ta dernière journée de travail — comment ça s'est passée ?",
+    "Tu utilises des outils ou des machines particulières ?",
+    "Qu'est-ce que tu aimes le plus dans ton travail ?",
+  ],
+  "hi-IN": [
+    "बढ़िया! आप अपने हाथों से क्या-क्या बना या ठीक कर सकते हैं?",
+    "आप यह काम कब से कर रहे हैं?",
+    "आप अकेले काम करते हैं या दूसरों के साथ?",
+    "इस काम में सबसे मुश्किल बात क्या है?",
+    "अपने पिछले काम के दिन के बारे में बताइए — कैसा रहा?",
+    "क्या आप कोई खास उपकरण या मशीन इस्तेमाल करते हैं?",
+    "अपने काम में आपको सबसे ज़्यादा क्या पसंद है?",
+  ],
+};
 
 const MIN_USER_MESSAGES_TO_ANALYZE = 2;
 
@@ -72,13 +110,24 @@ function ChatScreen() {
   const questionIndexRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const [bubbles, setBubbles] = useState<Bubble[]>(() => [
-    { id: 1, from: "bot", text: GREETING_AR },
-  ]);
-
   const lang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
   const { supported, listening, transcript, interim, error, start, stop, reset } =
     useSpeechRecognition(lang);
+
+  const [bubbles, setBubbles] = useState<Bubble[]>(() => [
+    { id: 1, from: "bot", text: GREETINGS[lang] },
+  ]);
+
+  // Keep the initial greeting in sync if the user changes language in Settings
+  // before sending any message.
+  useEffect(() => {
+    setBubbles((b) => {
+      if (b.length === 1 && b[0].from === "bot") {
+        return [{ id: 1, from: "bot", text: GREETINGS[lang] }];
+      }
+      return b;
+    });
+  }, [lang]);
 
   const tts = useSpeech();
 
@@ -89,9 +138,9 @@ function ChatScreen() {
     if (!tts.supported || tts.muted) return;
     greetedRef.current = true;
     // Slight delay so voices have a chance to load on first paint.
-    const t = setTimeout(() => tts.speak(GREETING_AR, "ar-MA", 1), 400);
+    const t = setTimeout(() => tts.speak(GREETINGS[lang], lang, 1), 400);
     return () => clearTimeout(t);
-  }, [tts]);
+  }, [tts, lang]);
 
   // Auto-scroll to the newest bubble whenever messages or live transcript change.
   useEffect(() => {
@@ -129,15 +178,16 @@ function ChatScreen() {
     const userBubbleId = Date.now();
     setBubbles((b) => [...b, { id: userBubbleId, from: "user", text }]);
 
-    // Pick the next mock follow-up question and push it as a bot bubble.
-    const idx = questionIndexRef.current % FOLLOW_UP_QUESTIONS_AR.length;
+    // Pick the next mock follow-up question in the user's language.
+    const followUps = FOLLOW_UPS[lang];
+    const idx = questionIndexRef.current % followUps.length;
     questionIndexRef.current += 1;
-    const followUp = FOLLOW_UP_QUESTIONS_AR[idx];
+    const followUp = followUps[idx];
     const botBubbleId = userBubbleId + 1;
 
     window.setTimeout(() => {
       setBubbles((b) => [...b, { id: botBubbleId, from: "bot", text: followUp }]);
-      tts.speak(followUp, "ar-MA", botBubbleId);
+      tts.speak(followUp, lang, botBubbleId);
     }, 650);
   };
 
@@ -285,7 +335,7 @@ function ChatScreen() {
                   className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    dir={isUser ? "auto" : "rtl"}
+                    dir={isUser ? "auto" : lang === "ar-MA" ? "rtl" : "ltr"}
                     className={`relative max-w-[80%] rounded-2xl px-4 py-2.5 text-[15px] leading-snug shadow-sm ${
                       isUser
                         ? "rounded-br-md bg-bubble-user text-bubble-user-foreground"
