@@ -269,8 +269,8 @@ function ChatScreen() {
         </div>
       </header>
 
-      {/* Chat area */}
-      <div ref={chatScrollRef} className="flex-1 overflow-y-auto bg-chat-bg">
+      {/* Chat area — scrollable, hidden scrollbar, takes all remaining space */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-chat-bg scrollbar-hide">
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
           <div className="space-y-3">
             {bubbles.map((b) => {
@@ -279,8 +279,9 @@ function ChatScreen() {
               return (
                 <motion.div
                   key={b.id}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
                   className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                 >
                   <div
@@ -312,12 +313,15 @@ function ChatScreen() {
                 </div>
               </div>
             )}
+
+            {/* Sentinel — auto-scroll target. Always rendered last. */}
+            <div ref={messagesEndRef} aria-hidden="true" />
           </div>
         </div>
       </div>
 
-      {/* Bottom mic area (always mic — no inline analyze button) */}
-      <div className="relative border-t border-border bg-card">
+      {/* Bottom mic area — fixed-height dock, never pushed by messages */}
+      <div className="relative flex-shrink-0 border-t border-border bg-card">
         {/* Floating Action Button — gated until enough user messages */}
         <button
           onClick={startAnalysis}
