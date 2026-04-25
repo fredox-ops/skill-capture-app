@@ -20,6 +20,7 @@ export function useSpeech() {
   const unlockedRef = useRef(false);
 
   // Keep a fresh list of voices. getVoices() can return [] until voiceschanged fires.
+  const [voicesReady, setVoicesReady] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       setSupported(false);
@@ -28,11 +29,16 @@ export function useSpeech() {
     setSupported(true);
 
     const refresh = () => {
-      voicesRef.current = window.speechSynthesis.getVoices();
+      const v = window.speechSynthesis.getVoices();
+      voicesRef.current = v;
+      if (v.length > 0) setVoicesReady(true);
     };
     refresh();
     window.speechSynthesis.addEventListener("voiceschanged", refresh);
+    // Some browsers (Chrome) need a kick to populate voices.
+    const t = setTimeout(refresh, 250);
     return () => {
+      clearTimeout(t);
       window.speechSynthesis.removeEventListener("voiceschanged", refresh);
       window.speechSynthesis.cancel();
     };
@@ -93,24 +99,58 @@ export function useSpeech() {
     (text: string, lang: string, id: number) => {
       if (!supported || muted || typeof window === "undefined") return;
       if (!text?.trim()) return;
-      window.speechSynthesis.cancel();
 
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = lang;
-      utter.rate = 0.95;
-      utter.pitch = 1;
+      const doSpeak = () => {
+        try {
+          window.speechSynthesis.cancel();
+          // Resume in case the engine got paused by the browser.
+          window.speechSynthesis.resume();
 
-      const voice = pickVoiceForLang(lang);
-      if (voice) utter.voice = voice;
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.lang = lang;
+          utter.rate = 0.95;
+          utter.pitch = 1;
+          utter.volume = 1;
 
-      utter.onstart = () => setSpeakingId(id);
-      utter.onend = () => setSpeakingId((curr) => (curr === id ? null : curr));
-      utter.onerror = () => setSpeakingId((curr) => (curr === id ? null : curr));
+          const voice = pickVoiceForLang(lang);
+          if (voice) utter.voice = voice;
 
-      window.speechSynthesis.speak(utter);
+          utter.onstart = () => setSpeakingId(id);
+          utter.onend = () => setSpeakingId((curr) => (curr === id ? null : curr));
+          utter.onerror = (e) => {
+            console.warn("[tts] error", e.error, "lang=", lang, "voice=", voice?.name);
+            setSpeakingId((curr) => (curr === id ? null : curr));
+          };
+
+          window.speechSynthesis.speak(utter);
+        } catch (err) {
+          console.warn("[tts] speak failed", err);
+        }
+      };
+
+      // If voices haven't loaded yet, wait briefly for voiceschanged.
+      if (voicesRef.current.length === 0) {
+        const handler = () => {
+          voicesRef.current = window.speechSynthesis.getVoices();
+          window.speechSynthesis.removeEventListener("voiceschanged", handler);
+          doSpeak();
+        };
+        window.speechSynthesis.addEventListener("voiceschanged", handler);
+        // Fallback after 600ms even if event never fires.
+        setTimeout(() => {
+          window.speechSynthesis.removeEventListener("voiceschanged", handler);
+          if (voicesRef.current.length === 0) {
+            voicesRef.current = window.speechSynthesis.getVoices();
+          }
+          doSpeak();
+        }, 600);
+        return;
+      }
+
+      doSpeak();
     },
     [muted, pickVoiceForLang, supported],
   );
 
-  return { supported, muted, toggleMute, speak, cancel, unlock, speakingId };
+  return { supported, muted, toggleMute, speak, cancel, unlock, speakingId, voicesReady };
 }

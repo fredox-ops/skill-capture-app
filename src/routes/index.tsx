@@ -83,6 +83,8 @@ function ChatScreen() {
 
   const profileLang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
 
+  const tts = useSpeech();
+
   // Per-turn language picker — defaults to the profile language but the user
   // can switch on the fly so the recognizer hears them in the language they
   // are actually about to speak. Persisted in localStorage between sessions.
@@ -99,6 +101,8 @@ function ChatScreen() {
   // yet, follow the profile (handled in the greeting effect below). Otherwise
   // their per-turn pick wins.
   const pickLang = (next: RecognitionLang) => {
+    // Any tap counts as a user gesture — unlock TTS so replies can auto-play.
+    tts.unlock();
     setLang(next);
     try {
       localStorage.setItem("sawtnet-active-lang", next);
@@ -125,7 +129,6 @@ function ChatScreen() {
     });
   }, [lang]);
 
-  const tts = useSpeech();
 
   // Speak the initial greeting once TTS is ready (and unmuted).
   const greetedRef = useRef(false);
