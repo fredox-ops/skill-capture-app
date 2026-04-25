@@ -219,6 +219,18 @@ function ChatScreen() {
       .map((b) => b.text)
       .join(" \n ");
 
+    // Use the language of the most recent bot reply (which mirrors the user's
+    // last spoken language) so the analysis comes back in the same language
+    // the conversation actually happened in.
+    const conversationLang: RecognitionLang =
+      [...bubbles].reverse().find((b) => b.from === "bot" && b.speechLang)?.speechLang ?? lang;
+    const languageLabel: Record<RecognitionLang, string> = {
+      "ar-MA": "Moroccan Arabic (Darija, Arabic script)",
+      "en-US": "English",
+      "fr-FR": "French",
+      "hi-IN": "Hindi",
+    };
+
     setStep("saving-transcript");
     try {
       const { data: session, error: sessionErr } = await supabase
@@ -226,7 +238,7 @@ function ChatScreen() {
         .insert({
           user_id: user.id,
           transcript: fullTranscript,
-          language: lang,
+          language: conversationLang,
         })
         .select()
         .single();
@@ -237,7 +249,7 @@ function ChatScreen() {
         body: {
           transcript: fullTranscript,
           country: profile?.country ?? "Morocco",
-          language: profile?.language ?? "English",
+          language: languageLabel[conversationLang],
         },
       });
       if (fnErr) throw fnErr;
