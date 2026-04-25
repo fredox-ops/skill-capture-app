@@ -484,8 +484,7 @@ function ResultsContent({
                       {j.wage_source && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px]">
                           <Database className="h-2.5 w-2.5" />
-                          {copy.sourceLabel}: {j.wage_source}
-                          {j.wage_year ? ` (${j.wage_year})` : ""}
+                          {copy.sourceLabel}: ILOSTAT 2023, National Median
                         </span>
                       )}
                     </div>
