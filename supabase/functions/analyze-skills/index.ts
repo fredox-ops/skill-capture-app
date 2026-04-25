@@ -28,9 +28,9 @@ serve(async (req) => {
 
     const systemPrompt = `You are Sawt-Net, an AI econometric engine that helps young workers in the informal economy (focus: ${country}) turn their spoken skills into formal job opportunities.
 
-You receive a raw transcript (in ${language}) describing what someone does day-to-day. You MUST extract:
+You receive a raw transcript describing what someone does day-to-day. You MUST extract:
 
-1. **skills**: 3-6 concrete skills, each mapped to its standardized **ISCO-08 4-digit occupational code** (e.g. "Hardware Repair" -> "7422", "Customer Service" -> "5223", "Plumbing" -> "7126"). Skill names in English.
+1. **skills**: 3-6 concrete skills, each mapped to its standardized **ISCO-08 4-digit occupational code** (e.g. "Hardware Repair" -> "7422", "Customer Service" -> "5223", "Plumbing" -> "7126"). Skill names MUST be written in ${language}. If ${language} is Moroccan Arabic (Darija), use Arabic script.
 
 2. **ai_risk_score** (0-100): how protected these skills are from automation by AI. Hands-on, interpersonal, manual-dexterity skills = HIGHER score (safer). Routine cognitive / data-entry tasks = LOWER score.
 
@@ -38,13 +38,14 @@ You receive a raw transcript (in ${language}) describing what someone does day-t
    - score >= 70 -> "Low Risk"
    - score 40-69 -> "Medium Risk"
    - score < 40 -> "High Risk"
+   (Always return these enum values in English exactly.)
 
 4. **opportunities**: exactly 3 realistic LOCAL job opportunities for ${country}, each with:
-   - job_title (English)
+   - job_title written in ${language} (Arabic script if Darija)
    - match_percent (60-95)
    - local_wage: realistic monthly wage as a string in local currency, e.g. "4500 ${currency}"
 
-Be concise, realistic, and grounded in the transcript. Use real ISCO-08 codes, not made-up ones.`;
+Be concise, realistic, and grounded in the transcript. Use real ISCO-08 codes, not made-up ones. Translate skill names and job titles into ${language} naturally — do not leave them in English unless ${language} is English.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
