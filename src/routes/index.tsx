@@ -293,6 +293,7 @@ function ChatScreen() {
     };
 
     setStep("saving-transcript");
+    setAnalyzeAttempt(0);
     try {
       const { data: session, error: sessionErr } = await supabase
         .from("voice_sessions")
@@ -306,15 +307,36 @@ function ChatScreen() {
       if (sessionErr) throw sessionErr;
 
       setStep("calling-ai");
-      const { data, error: fnErr } = await supabase.functions.invoke("analyze-skills", {
-        body: {
-          transcript: fullTranscript,
-          country: profile?.country ?? "Morocco",
-          language: languageLabel[conversationLang],
-        },
-      });
-      if (fnErr) throw fnErr;
-      if (data?.error) throw new Error(data.error);
+
+      // Auto-retry the AI call up to 3 attempts (initial + 2 retries) — many
+      // failures on weak 3G are transient timeouts that succeed on retry.
+      const MAX_ATTEMPTS = 3;
+      let lastErr: unknown = null;
+      let aiData: { skills: unknown; ai_risk_score: unknown; ai_risk_level: unknown; opportunities: unknown } | null = null;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        setAnalyzeAttempt(attempt);
+        try {
+          const { data, error: fnErr } = await supabase.functions.invoke("analyze-skills", {
+            body: {
+              transcript: fullTranscript,
+              country: profile?.country ?? "Morocco",
+              language: languageLabel[conversationLang],
+            },
+          });
+          if (fnErr) throw fnErr;
+          if (data?.error) throw new Error(data.error);
+          aiData = data;
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (attempt < MAX_ATTEMPTS) {
+            // Exponential-ish backoff: 1.2s, 2.4s.
+            await new Promise((r) => setTimeout(r, 1200 * attempt));
+          }
+        }
+      }
+      if (!aiData) throw lastErr ?? new Error("Analysis failed");
 
       setStep("saving-results");
       const { data: analysis, error: aErr } = await supabase
@@ -322,10 +344,10 @@ function ChatScreen() {
         .insert({
           user_id: user.id,
           session_id: session.id,
-          skills: data.skills,
-          ai_score: data.ai_risk_score,
-          risk_level: data.ai_risk_level,
-          jobs: data.opportunities,
+          skills: aiData.skills,
+          ai_score: aiData.ai_risk_score,
+          risk_level: aiData.ai_risk_level,
+          jobs: aiData.opportunities,
         })
         .select()
         .single();
@@ -335,15 +357,19 @@ function ChatScreen() {
       navigate({ to: "/results", search: { id: analysis.id } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Analysis failed";
-      toast.error(msg);
+      toast.error(`${msg} — ضعف في الشبكة. حاول مرة أخرى.`);
       setStep("idle");
+      setAnalyzeAttempt(0);
     }
   };
 
   const stepLabel: Record<AnalyzeStep, string> = {
     "idle": "",
     "saving-transcript": "Saving transcript…",
-    "calling-ai": "Calling AI engine…",
+    "calling-ai":
+      analyzeAttempt > 1
+        ? `جاري تحليل البيانات عبر شبكة ضعيفة… (retry ${analyzeAttempt}/3)`
+        : "جاري تحليل البيانات… Calling AI engine…",
     "saving-results": "Saving results…",
   };
 
