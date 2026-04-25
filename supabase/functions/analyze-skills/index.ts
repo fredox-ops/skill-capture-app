@@ -24,14 +24,27 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const systemPrompt = `You are Sawt-Net, an AI that helps young workers in the informal economy (focus: ${country}) turn their spoken skills into formal job opportunities.
+    const currency = country === "India" ? "INR" : "MAD";
 
-You receive a raw transcript (in ${language}) describing what someone does. Extract:
-1. Concrete skills, mapped to ISCO-08 occupational categories where possible (3-6 short skill names, in English).
-2. AI Readiness Score 0-100: how protected these skills are from automation. Hands-on / interpersonal = HIGHER score (safer). Routine cognitive = LOWER. Then risk_level: "safe" (>=70), "medium" (40-69), "high" (<40).
-3. 3 realistic local job opportunities for ${country} with title, match% (60-95), and a realistic monthly salary in local currency (MAD for Morocco, INR for India).
+    const systemPrompt = `You are Sawt-Net, an AI econometric engine that helps young workers in the informal economy (focus: ${country}) turn their spoken skills into formal job opportunities.
 
-Be concise, realistic, and grounded in the transcript.`;
+You receive a raw transcript (in ${language}) describing what someone does day-to-day. You MUST extract:
+
+1. **skills**: 3-6 concrete skills, each mapped to its standardized **ISCO-08 4-digit occupational code** (e.g. "Hardware Repair" -> "7422", "Customer Service" -> "5223", "Plumbing" -> "7126"). Skill names in English.
+
+2. **ai_risk_score** (0-100): how protected these skills are from automation by AI. Hands-on, interpersonal, manual-dexterity skills = HIGHER score (safer). Routine cognitive / data-entry tasks = LOWER score.
+
+3. **ai_risk_level**: derived from the score:
+   - score >= 70 -> "Low Risk"
+   - score 40-69 -> "Medium Risk"
+   - score < 40 -> "High Risk"
+
+4. **opportunities**: exactly 3 realistic LOCAL job opportunities for ${country}, each with:
+   - job_title (English)
+   - match_percent (60-95)
+   - local_wage: realistic monthly wage as a string in local currency, e.g. "4500 ${currency}"
+
+Be concise, realistic, and grounded in the transcript. Use real ISCO-08 codes, not made-up ones.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -50,35 +63,52 @@ Be concise, realistic, and grounded in the transcript.`;
             type: "function",
             function: {
               name: "return_skill_analysis",
-              description: "Return the structured skill analysis for the worker.",
+              description: "Return the structured ISCO-08 skill analysis for the worker.",
               parameters: {
                 type: "object",
                 properties: {
                   skills: {
                     type: "array",
-                    items: { type: "string" },
-                    minItems: 2,
+                    minItems: 3,
                     maxItems: 6,
+                    items: {
+                      type: "object",
+                      properties: {
+                        name: { type: "string" },
+                        isco_code: {
+                          type: "string",
+                          description: "ISCO-08 4-digit code as a string, e.g. '7422'",
+                        },
+                      },
+                      required: ["name", "isco_code"],
+                      additionalProperties: false,
+                    },
                   },
-                  ai_score: { type: "integer", minimum: 0, maximum: 100 },
-                  risk_level: { type: "string", enum: ["safe", "medium", "high"] },
-                  jobs: {
+                  ai_risk_score: { type: "integer", minimum: 0, maximum: 100 },
+                  ai_risk_level: {
+                    type: "string",
+                    enum: ["Low Risk", "Medium Risk", "High Risk"],
+                  },
+                  opportunities: {
                     type: "array",
                     minItems: 3,
                     maxItems: 3,
                     items: {
                       type: "object",
                       properties: {
-                        title: { type: "string" },
-                        match: { type: "integer", minimum: 50, maximum: 99 },
-                        salary: { type: "string" },
+                        job_title: { type: "string" },
+                        match_percent: { type: "integer", minimum: 50, maximum: 99 },
+                        local_wage: {
+                          type: "string",
+                          description: `Monthly wage with currency, e.g. "4500 ${currency}"`,
+                        },
                       },
-                      required: ["title", "match", "salary"],
+                      required: ["job_title", "match_percent", "local_wage"],
                       additionalProperties: false,
                     },
                   },
                 },
-                required: ["skills", "ai_score", "risk_level", "jobs"],
+                required: ["skills", "ai_risk_score", "ai_risk_level", "opportunities"],
                 additionalProperties: false,
               },
             },

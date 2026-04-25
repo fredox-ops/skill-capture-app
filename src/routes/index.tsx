@@ -1,7 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Settings, Sparkles, Square, MicOff } from "lucide-react";
+import { History as HistoryIcon, Mic, Settings, Sparkles, Square, MicOff } from "lucide-react";
 import { toast } from "sonner";
 import { MobileShell } from "@/components/MobileShell";
 import { SettingsModal } from "@/components/SettingsModal";
@@ -9,6 +9,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useSpeechRecognition, getRecognitionLang } from "@/hooks/useSpeechRecognition";
 import { supabase } from "@/integrations/supabase/client";
+
+type AnalyzeStep = "idle" | "saving-transcript" | "calling-ai" | "saving-results";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -31,7 +33,8 @@ function ChatScreen() {
   const { user, loading: authLoading } = useAuth();
   const { profile } = useProfile();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
+  const [step, setStep] = useState<AnalyzeStep>("idle");
+  const analyzing = step !== "idle";
   const [bubbles, setBubbles] = useState<Bubble[]>([
     {
       id: 1,
@@ -81,9 +84,9 @@ function ChatScreen() {
 
   const startAnalysis = async () => {
     if (!lastUserMessage || !user) return;
-    setAnalyzing(true);
+    setStep("saving-transcript");
     try {
-      // Save the voice session
+      // Step 1 — Save the voice session
       const { data: session, error: sessionErr } = await supabase
         .from("voice_sessions")
         .insert({
@@ -95,7 +98,8 @@ function ChatScreen() {
         .single();
       if (sessionErr) throw sessionErr;
 
-      // Call analyze-skills edge function
+      // Step 2 — Call analyze-skills edge function
+      setStep("calling-ai");
       const { data, error: fnErr } = await supabase.functions.invoke("analyze-skills", {
         body: {
           transcript: lastUserMessage,
@@ -106,16 +110,17 @@ function ChatScreen() {
       if (fnErr) throw fnErr;
       if (data?.error) throw new Error(data.error);
 
-      // Save the analysis
+      // Step 3 — Save the analysis (new ISCO-08 schema)
+      setStep("saving-results");
       const { data: analysis, error: aErr } = await supabase
         .from("analyses")
         .insert({
           user_id: user.id,
           session_id: session.id,
           skills: data.skills,
-          ai_score: data.ai_score,
-          risk_level: data.risk_level,
-          jobs: data.jobs,
+          ai_score: data.ai_risk_score,
+          risk_level: data.ai_risk_level,
+          jobs: data.opportunities,
         })
         .select()
         .single();
@@ -125,8 +130,15 @@ function ChatScreen() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Analysis failed";
       toast.error(msg);
-      setAnalyzing(false);
+      setStep("idle");
     }
+  };
+
+  const stepLabel: Record<AnalyzeStep, string> = {
+    "idle": "",
+    "saving-transcript": "Saving transcript…",
+    "calling-ai": "Calling AI engine…",
+    "saving-results": "Saving results…",
   };
 
   if (authLoading) {
@@ -153,13 +165,22 @@ function ChatScreen() {
               <p className="text-xs text-success">● online</p>
             </div>
           </div>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Settings"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
-          >
-            <Settings className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/history"
+              aria-label="History"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
+            >
+              <HistoryIcon className="h-5 w-5" />
+            </Link>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Settings"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -204,18 +225,25 @@ function ChatScreen() {
         <div className="mx-auto w-full max-w-3xl px-5 pb-6 pt-4 sm:px-8">
           <AnimatePresence mode="wait">
             {lastUserMessage && !listening ? (
-              <motion.button
+              <motion.div
                 key="analyze"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                onClick={startAnalysis}
-                disabled={analyzing}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground shadow-[var(--shadow-mic)] active:scale-[0.98] disabled:opacity-70"
+                className="flex flex-col items-center gap-2"
               >
-                <Sparkles className={`h-5 w-5 ${analyzing ? "animate-spin" : ""}`} />
-                {analyzing ? "Analyzing your skills…" : "Analyze My Skills"}
-              </motion.button>
+                <button
+                  onClick={startAnalysis}
+                  disabled={analyzing}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground shadow-[var(--shadow-mic)] active:scale-[0.98] disabled:opacity-70"
+                >
+                  <Sparkles className={`h-5 w-5 ${analyzing ? "animate-spin" : ""}`} />
+                  {analyzing ? "Analyzing your skills…" : "Analyze My Skills"}
+                </button>
+                {analyzing && (
+                  <p className="text-xs text-muted-foreground">{stepLabel[step]}</p>
+                )}
+              </motion.div>
             ) : (
               <motion.div
                 key="mic"
