@@ -182,6 +182,7 @@ function ChatScreen() {
         body: {
           messages: conversation.map(({ from, text }) => ({ from, text })),
           country: profile?.country ?? "Morocco",
+          user_lang: lang,
         },
       });
       if (fnErr) throw fnErr;
@@ -228,6 +229,8 @@ function ChatScreen() {
   const handleHoldStart = (e: React.PointerEvent | React.KeyboardEvent) => {
     if (!supported || listening || analyzing || replying) return;
     if ("preventDefault" in e) e.preventDefault();
+    // Unlock TTS on this real user gesture so later replies can speak automatically.
+    tts.unlock();
     start();
   };
   const handleHoldEnd = () => {
