@@ -117,7 +117,7 @@ serve(async (req) => {
       off += p.byteLength;
     }
 
-    const audio = encodeBase64(merged);
+    const audio = encodeBase64(merged.buffer.slice(merged.byteOffset, merged.byteOffset + merged.byteLength));
     return new Response(
       JSON.stringify({ audio, mime: "audio/mpeg" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
