@@ -601,7 +601,7 @@ function ResultsContent({
         displayName={displayName}
         jobTitle={applyJob?.job_title ?? ""}
         localWage={applyJob?.local_wage ?? ""}
-        skills={analysis.skills}
+        skills={enrichedSkills}
         transcript={transcript}
       />
     </>
