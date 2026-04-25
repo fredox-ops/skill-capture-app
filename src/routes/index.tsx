@@ -530,11 +530,6 @@ function ChatScreen() {
                       ? "Hold to start the conversation"
                       : "Hold to keep talking"}
               </p>
-              {supported && (
-                <p className="text-[11px] text-muted-foreground/70">
-                  Language: {RECOGNITION_LANG_LABELS[lang]}
-                </p>
-              )}
               {analyzing && (
                 <p className="text-[11px] font-medium text-primary">{stepLabel[step]}</p>
               )}
