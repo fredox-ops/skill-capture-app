@@ -472,16 +472,23 @@ function ChatScreen() {
 
   return (
     <MobileShell>
-      {/* Header */}
-      <header className="border-b border-border bg-card">
+      {/* Header — clean, white, no hard borders */}
+      <header className="bg-card/95 backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-[var(--primary-glow)] text-primary-foreground shadow-[var(--shadow-card)]"
+            >
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-base font-bold leading-tight sm:text-lg">Sawt-Net</h1>
-              <p className="text-xs text-success">● online</p>
+              <h1 className="text-base font-extrabold leading-tight tracking-tight text-foreground sm:text-lg">
+                Sawt-Net
+              </h1>
+              <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" />
+                online
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -490,7 +497,7 @@ function ChatScreen() {
                 onClick={tts.toggleMute}
                 aria-label={tts.muted ? "Unmute voice" : "Mute voice"}
                 title={tts.muted ? "Unmute voice" : "Mute voice"}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-accent"
               >
                 {tts.muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
               </button>
@@ -498,14 +505,14 @@ function ChatScreen() {
             <Link
               to="/history"
               aria-label="History"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-accent"
             >
               <HistoryIcon className="h-5 w-5" />
             </Link>
             <button
               onClick={() => setSettingsOpen(true)}
               aria-label="Settings"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-accent"
             >
               <Settings className="h-5 w-5" />
             </button>
