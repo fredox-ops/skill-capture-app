@@ -278,10 +278,21 @@ function ChatScreen() {
                     </>
                   )}
                   <button
-                    onClick={() => (listening ? stopAndPush() : start())}
-                    disabled={!supported}
-                    aria-label={listening ? "Stop recording" : "Start recording"}
-                    className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] active:scale-95 transition-transform disabled:opacity-50"
+                    onPointerDown={handleHoldStart}
+                    onPointerUp={handleHoldEnd}
+                    onPointerLeave={handleHoldEnd}
+                    onPointerCancel={handleHoldEnd}
+                    onKeyDown={(e) => {
+                      if (e.key === " " || e.code === "Space") handleHoldStart(e);
+                    }}
+                    onKeyUp={(e) => {
+                      if (e.key === " " || e.code === "Space") handleHoldEnd();
+                    }}
+                    onContextMenu={(e) => e.preventDefault()}
+                    disabled={!supported || analyzing}
+                    aria-label={listening ? "Release to send" : "Hold to record"}
+                    className="relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] transition-transform disabled:opacity-50 touch-none"
+                    style={{ transform: listening ? "scale(1.08)" : undefined }}
                   >
                     {!supported ? (
                       <MicOff className="h-8 w-8" />
@@ -296,9 +307,14 @@ function ChatScreen() {
                   {!supported
                     ? "Voice input not supported. Try Chrome."
                     : listening
-                      ? "Listening… tap to stop"
-                      : "Tap and speak your skills"}
+                      ? "Listening… release to send"
+                      : "Hold to speak"}
                 </p>
+                {supported && (
+                  <p className="text-[11px] text-muted-foreground/70">
+                    Language: {RECOGNITION_LANG_LABELS[lang]}
+                  </p>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
