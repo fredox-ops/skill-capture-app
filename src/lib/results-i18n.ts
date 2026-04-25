@@ -131,7 +131,7 @@ const en: ResultsCopy = {
     `In ${country}, the share of 20–39 year-olds with upper-secondary education is projected to rise from ${a}% (2025) to ${b}% (2035).`,
   honestLimitsTitle: "What we don't know",
   honestLimitsBody:
-    "Wages are national medians by ISCO major group, not local offers. Automation scores are from Frey-Osborne (US labour market) and may understate hands-on resilience in LMIC contexts. Use as guidance, not a guarantee.",
+    "Disclaimer: Wages are national medians. Automation scores are based on Frey-Osborne and may differ in informal LMIC contexts.",
 };
 
 const ar: ResultsCopy = {
@@ -193,7 +193,7 @@ const ar: ResultsCopy = {
     `في ${country}، نسبة الشباب من 20 إلى 39 سنة الحاصلين على التعليم الثانوي غادي ترتفع من ${a}% عام 2025 إلى ${b}% عام 2035.`,
   honestLimitsTitle: "آش ما كنعرفوش",
   honestLimitsBody:
-    "الأجور هي معدلات وطنية حسب المجموعة المهنية ISCO، ماشي عروض محلية. درجات الأتمتة مستخرجة من Frey-Osborne (سوق الشغل الأمريكي) وقد تكون غير دقيقة بالنسبة للمهن اليدوية في الدول النامية. استعمل المعلومات كدليل، ماشي ضمانة.",
+    "تنبيه: الأجور هي المعدل الوطني. سكور الأتمتة مبني على Frey-Osborne وقد يختلف في السياقات غير الرسمية للدول النامية.",
 };
 
 const fr: ResultsCopy = {
@@ -255,7 +255,7 @@ const fr: ResultsCopy = {
     `Au ${country}, la part des 20–39 ans avec un niveau secondaire supérieur passera de ${a}% (2025) à ${b}% (2035).`,
   honestLimitsTitle: "Ce que nous ne savons pas",
   honestLimitsBody:
-    "Les salaires sont des médianes nationales par grand groupe ISCO, pas des offres locales. Les scores d'automatisation viennent de Frey-Osborne (marché US) et peuvent sous-estimer la résilience manuelle dans les contextes LMIC. À utiliser comme repère, pas comme garantie.",
+    "Avertissement : Les salaires sont des médianes nationales. Les scores d'automatisation sont basés sur Frey-Osborne et peuvent différer dans les contextes informels des pays à revenu faible et intermédiaire.",
 };
 
 const hi: ResultsCopy = {
@@ -317,7 +317,7 @@ const hi: ResultsCopy = {
     `${country} में, उच्चतर माध्यमिक शिक्षा वाले 20–39 वर्षीय युवाओं का हिस्सा ${a}% (2025) से बढ़कर ${b}% (2035) होने का अनुमान है।`,
   honestLimitsTitle: "हम क्या नहीं जानते",
   honestLimitsBody:
-    "वेतन ISCO बड़े समूह के राष्ट्रीय मध्य हैं, स्थानीय ऑफ़र नहीं। ऑटोमेशन स्कोर Frey-Osborne (US श्रम बाज़ार) से लिए गए हैं और LMIC संदर्भों में हाथ से किए जाने वाले कामों की resilience को कम आँक सकते हैं। दिशा-निर्देश के रूप में उपयोग करें, गारंटी नहीं।",
+    "अस्वीकरण: वेतन राष्ट्रीय औसत हैं। स्वचालन स्कोर Frey-Osborne पर आधारित हैं और निम्न/मध्यम-आय देशों के अनौपचारिक संदर्भों में भिन्न हो सकते हैं।",
 };
 
 const TABLE: Record<ResultsLang, ResultsCopy> = {
