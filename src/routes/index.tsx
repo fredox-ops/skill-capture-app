@@ -5,13 +5,13 @@ import {
   History as HistoryIcon,
   Mic,
   MicOff,
-  Send,
   Settings,
   Sparkles,
   Square,
   Volume2,
   VolumeX,
   Play,
+  WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileShell } from "@/components/MobileShell";
