@@ -70,7 +70,7 @@ function ChatScreen() {
   const [step, setStep] = useState<AnalyzeStep>("idle");
   const analyzing = step !== "idle";
   const questionIndexRef = useRef(0);
-  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const [bubbles, setBubbles] = useState<Bubble[]>(() => [
     { id: 1, from: "bot", text: GREETING_AR },
@@ -93,11 +93,11 @@ function ChatScreen() {
     return () => clearTimeout(t);
   }, [tts]);
 
-  // Auto-scroll to newest bubble.
+  // Auto-scroll to the newest bubble whenever messages or live transcript change.
   useEffect(() => {
-    const el = chatScrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [bubbles, listening, interim, transcript]);
+
 
   // Redirect if not signed in
   useEffect(() => {
