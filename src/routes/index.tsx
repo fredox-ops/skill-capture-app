@@ -99,6 +99,8 @@ function ChatScreen() {
   // yet, follow the profile (handled in the greeting effect below). Otherwise
   // their per-turn pick wins.
   const pickLang = (next: RecognitionLang) => {
+    // Any tap counts as a user gesture — unlock TTS so replies can auto-play.
+    tts.unlock();
     setLang(next);
     try {
       localStorage.setItem("sawtnet-active-lang", next);
