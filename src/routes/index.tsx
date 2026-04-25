@@ -403,7 +403,9 @@ function ChatScreen() {
                         type="button"
                         onClick={() => {
                           tts.unlock();
-                          tts.speak(b.text, b.speechLang ?? lang, b.id);
+                          if (tts.muted) tts.toggleMute();
+                          // Defer slightly so the unmute state propagates before speak() reads it.
+                          setTimeout(() => tts.speak(b.text, b.speechLang ?? lang, b.id), 50);
                         }}
                         className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-primary/80 hover:text-primary"
                         aria-label="Play reply audio"
