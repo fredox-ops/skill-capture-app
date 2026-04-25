@@ -549,14 +549,17 @@ function ChatScreen() {
           onClick={startAnalysis}
           disabled={!canAnalyze}
           aria-label="Analyze My Skills"
-          className={`absolute -top-7 right-5 z-20 flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all ${
+          className={`absolute -top-7 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all ${
             canAnalyze
               ? "fab-pulse bg-primary text-primary-foreground"
               : "cursor-not-allowed bg-muted text-muted-foreground opacity-60"
           }`}
         >
-          <Sparkles className={`h-4 w-4 ${analyzing ? "animate-spin" : ""}`} />
-          {analyzing ? "Analyzing…" : "Analyze My Skills"}
+          {analyzing ? (
+            <Loader2 className="h-7 w-7 animate-spin" />
+          ) : (
+            <Sparkles className="h-7 w-7" />
+          )}
         </button>
 
         <div className="mx-auto w-full max-w-3xl px-5 pb-6 pt-6 sm:px-8">
@@ -584,6 +587,20 @@ function ChatScreen() {
               );
             })}
           </div>
+
+          {/* "Wait for signal" overlay — large pulsing radar shown while the
+              analyze pipeline is running. No text required: the icon + colour
+              tell the story for non-readers, and a chime played at start. */}
+          {analyzing && (
+            <div className="mb-4 flex flex-col items-center gap-2">
+              <div className="relative flex h-16 w-16 items-center justify-center">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/40" />
+                <span className="absolute inline-flex h-2/3 w-2/3 animate-ping rounded-full bg-primary/30 [animation-delay:300ms]" />
+                <Loader2 className="relative h-8 w-8 animate-spin text-primary" />
+              </div>
+            </div>
+          )}
+
           <AnimatePresence mode="wait">
             <motion.div
               key="mic"
@@ -593,7 +610,7 @@ function ChatScreen() {
               className="flex flex-col items-center gap-2"
             >
               <div className="relative flex h-20 w-20 items-center justify-center">
-                {listening && (
+                {listening && !micWarning && !micError && !micSuccess && (
                   <>
                     <span className="ripple" />
                     <span className="ripple delay-1" />
@@ -612,12 +629,34 @@ function ChatScreen() {
                     if (e.key === " " || e.code === "Space") handleHoldEnd();
                   }}
                   onContextMenu={(e) => e.preventDefault()}
-                  disabled={!supported || analyzing}
-                  aria-label={listening ? "Release to send" : "Hold to record"}
-                  className="relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] transition-transform disabled:opacity-50 touch-none"
-                  style={{ transform: listening ? "scale(1.08)" : undefined }}
+                  disabled={!supported || analyzing || micWarning || micError}
+                  aria-label={
+                    micError
+                      ? "Connection error"
+                      : micWarning
+                        ? "Weak connection"
+                        : micSuccess
+                          ? "Success"
+                          : listening
+                            ? "Release to send"
+                            : "Hold to record"
+                  }
+                  className={`relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full text-white shadow-[var(--shadow-mic)] transition-all touch-none ${
+                    micError
+                      ? "bg-destructive animate-shake"
+                      : micWarning
+                        ? "bg-warning animate-shake"
+                        : micSuccess
+                          ? "bg-success"
+                          : "bg-primary disabled:opacity-50"
+                  }`}
+                  style={{ transform: listening && !micWarning && !micError ? "scale(1.08)" : undefined }}
                 >
-                  {!supported ? (
+                  {micError || micWarning ? (
+                    <WifiOff className="h-9 w-9" />
+                  ) : micSuccess ? (
+                    <Check className="h-10 w-10" strokeWidth={3} />
+                  ) : !supported ? (
                     <MicOff className="h-8 w-8" />
                   ) : listening ? (
                     <Square className="h-7 w-7 fill-current" />
@@ -626,25 +665,20 @@ function ChatScreen() {
                   )}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {!supported
-                  ? "Voice input not supported. Try Chrome."
-                  : listening
-                    ? "Listening… release to send"
-                    : replying
-                      ? "Sawt-Net is thinking…"
-                      : userMessageCount === 0
-                      ? "Hold to start the conversation"
-                      : "Hold to keep talking"}
-              </p>
-              {analyzing && (
-                <p className="text-[11px] font-medium text-primary">{stepLabel[step]}</p>
-              )}
-              {!canAnalyze && userMessageCount > 0 && !analyzing && (
-                <p className="text-[11px] text-muted-foreground/70">
-                  Send {MIN_USER_MESSAGES_TO_ANALYZE - userMessageCount} more message
-                  {MIN_USER_MESSAGES_TO_ANALYZE - userMessageCount === 1 ? "" : "s"} to unlock analysis
-                </p>
+
+              {/* Tiny dot indicator for "remaining messages until analysis" —
+                  visual, not text-based. Filled = sent, empty = needed. */}
+              {!analyzing && userMessageCount < MIN_USER_MESSAGES_TO_ANALYZE && userMessageCount > 0 && (
+                <div className="flex items-center gap-1.5" aria-label={`${userMessageCount} of ${MIN_USER_MESSAGES_TO_ANALYZE} messages sent`}>
+                  {Array.from({ length: MIN_USER_MESSAGES_TO_ANALYZE }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`h-2 w-2 rounded-full transition-colors ${
+                        i < userMessageCount ? "bg-primary" : "bg-muted-foreground/30"
+                      }`}
+                    />
+                  ))}
+                </div>
               )}
             </motion.div>
           </AnimatePresence>
