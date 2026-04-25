@@ -1,10 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import {
+  lookupAutomation,
+  lookupWage,
+  lookupEducationTrend,
+  probabilityToResilienceScore,
+  resilienceLevel,
+  type AutomationSignal,
+  type WageSignal,
+} from "../_shared/econ-data/lookup.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+interface SkillIn {
+  name: string;
+  isco_code: string;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -24,28 +38,20 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const currency = country === "India" ? "INR" : "MAD";
+    // ---- 1. Ask the LLM ONLY for skill extraction + ISCO mapping + job titles.
+    // All numeric signals (automation risk, wages) come from real datasets below.
+    const systemPrompt = `You are Sawt-Net, an econometric engine that helps young workers in the informal economy turn spoken skills into formal opportunities. Country focus: ${country}.
 
-    const systemPrompt = `You are Sawt-Net, an AI econometric engine that helps young workers in the informal economy (focus: ${country}) turn their spoken skills into formal job opportunities.
+You receive a raw transcript describing day-to-day work. Extract ONLY structured fields. Do NOT invent numeric scores or wages — those come from external datasets.
 
-You receive a raw transcript describing what someone does day-to-day. You MUST extract:
+1. **skills**: 3-6 concrete skills, each mapped to its standardized **ISCO-08 4-digit code** (e.g. "Hardware Repair" -> "7422", "Plumbing" -> "7126", "Cooking in a restaurant" -> "5120"). Skill names MUST be written in ${language}. If ${language} is Moroccan Arabic (Darija), use Arabic script.
 
-1. **skills**: 3-6 concrete skills, each mapped to its standardized **ISCO-08 4-digit occupational code** (e.g. "Hardware Repair" -> "7422", "Customer Service" -> "5223", "Plumbing" -> "7126"). Skill names MUST be written in ${language}. If ${language} is Moroccan Arabic (Darija), use Arabic script.
+2. **opportunities**: exactly 3 realistic LOCAL job titles for ${country}, each tied to one ISCO-08 4-digit code from your detected skills (or a closely related code). Output:
+   - job_title in ${language} (Arabic script for Darija)
+   - isco_code (4-digit string)
+   - match_percent (60-95) — your honest qualitative match estimate
 
-2. **ai_risk_score** (0-100): how protected these skills are from automation by AI. Hands-on, interpersonal, manual-dexterity skills = HIGHER score (safer). Routine cognitive / data-entry tasks = LOWER score.
-
-3. **ai_risk_level**: derived from the score:
-   - score >= 70 -> "Low Risk"
-   - score 40-69 -> "Medium Risk"
-   - score < 40 -> "High Risk"
-   (Always return these enum values in English exactly.)
-
-4. **opportunities**: exactly 3 realistic LOCAL job opportunities for ${country}, each with:
-   - job_title written in ${language} (Arabic script if Darija)
-   - match_percent (60-95)
-   - local_wage: realistic monthly wage as a string in local currency, e.g. "4500 ${currency}"
-
-Be concise, realistic, and grounded in the transcript. Use real ISCO-08 codes, not made-up ones. Translate skill names and job titles into ${language} naturally — do not leave them in English unless ${language} is English.`;
+Use real ISCO-08 codes only.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -63,8 +69,8 @@ Be concise, realistic, and grounded in the transcript. Use real ISCO-08 codes, n
           {
             type: "function",
             function: {
-              name: "return_skill_analysis",
-              description: "Return the structured ISCO-08 skill analysis for the worker.",
+              name: "return_skill_extraction",
+              description: "Return the structured ISCO-08 skill extraction for the worker.",
               parameters: {
                 type: "object",
                 properties: {
@@ -76,19 +82,11 @@ Be concise, realistic, and grounded in the transcript. Use real ISCO-08 codes, n
                       type: "object",
                       properties: {
                         name: { type: "string" },
-                        isco_code: {
-                          type: "string",
-                          description: "ISCO-08 4-digit code as a string, e.g. '7422'",
-                        },
+                        isco_code: { type: "string", description: "ISCO-08 4-digit code as a string" },
                       },
                       required: ["name", "isco_code"],
                       additionalProperties: false,
                     },
-                  },
-                  ai_risk_score: { type: "integer", minimum: 0, maximum: 100 },
-                  ai_risk_level: {
-                    type: "string",
-                    enum: ["Low Risk", "Medium Risk", "High Risk"],
                   },
                   opportunities: {
                     type: "array",
@@ -98,24 +96,21 @@ Be concise, realistic, and grounded in the transcript. Use real ISCO-08 codes, n
                       type: "object",
                       properties: {
                         job_title: { type: "string" },
+                        isco_code: { type: "string", description: "ISCO-08 4-digit code matching this job" },
                         match_percent: { type: "integer", minimum: 50, maximum: 99 },
-                        local_wage: {
-                          type: "string",
-                          description: `Monthly wage with currency, e.g. "4500 ${currency}"`,
-                        },
                       },
-                      required: ["job_title", "match_percent", "local_wage"],
+                      required: ["job_title", "isco_code", "match_percent"],
                       additionalProperties: false,
                     },
                   },
                 },
-                required: ["skills", "ai_risk_score", "ai_risk_level", "opportunities"],
+                required: ["skills", "opportunities"],
                 additionalProperties: false,
               },
             },
           },
         ],
-        tool_choice: { type: "function", function: { name: "return_skill_analysis" } },
+        tool_choice: { type: "function", function: { name: "return_skill_extraction" } },
       }),
     });
 
@@ -150,59 +145,119 @@ Be concise, realistic, and grounded in the transcript. Use real ISCO-08 codes, n
       });
     }
 
-    const result = JSON.parse(toolCall.function.arguments);
+    const extracted = JSON.parse(toolCall.function.arguments) as {
+      skills: SkillIn[];
+      opportunities: { job_title: string; isco_code: string; match_percent: number }[];
+    };
 
-    // Enrich opportunities with real local job listings via Tavily.
-    // Each Tavily call is wrapped in a 6-second timeout via AbortController so
-    // a slow Tavily request can never hang the entire edge function.
+    // ---- 2. Enrich each skill with a real Frey-Osborne automation probability.
+    const enrichedSkills = extracted.skills.map((s) => {
+      const auto = lookupAutomation(s.isco_code);
+      return {
+        name: s.name,
+        isco_code: s.isco_code,
+        automation_probability: auto.automation_probability,
+        automation_source: auto.source_short,
+      };
+    });
+
+    // ---- 3. Compute the cohort-level resilience score from the REAL data
+    // (not from the LLM). Take the lowest automation prob across skills as the
+    // worker's protective floor — they are protected by their MOST resilient
+    // skill, not the average.
+    const automations: AutomationSignal[] = extracted.skills.map((s) => lookupAutomation(s.isco_code));
+    const minProb = Math.min(...automations.map((a) => a.automation_probability));
+    const ai_risk_score = probabilityToResilienceScore(minProb);
+    const ai_risk_level = resilienceLevel(ai_risk_score);
+
+    // ---- 4. Replace the LLM's wage guess with ILOSTAT lookup per opportunity.
+    const enrichedOpportunities = extracted.opportunities.map((op) => {
+      const wage: WageSignal | null = lookupWage(op.isco_code, country);
+      const auto = lookupAutomation(op.isco_code);
+      return {
+        job_title: op.job_title,
+        isco_code: op.isco_code,
+        match_percent: op.match_percent,
+        local_wage: wage ? wage.formatted : "—",
+        wage_year: wage?.year ?? null,
+        wage_source: wage?.source_short ?? null,
+        automation_probability: auto.automation_probability,
+      };
+    });
+
+    // ---- 5. Look up the Wittgenstein education-trend signal for this country.
+    const educationTrend = lookupEducationTrend(country);
+
+    // ---- 6. Optional Tavily enrichment for live job listings (unchanged).
     const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY");
-    if (TAVILY_API_KEY && Array.isArray(result.opportunities)) {
+    let opportunitiesWithListings = enrichedOpportunities;
+    if (TAVILY_API_KEY) {
       const tavilyResults = await Promise.allSettled(
-        result.opportunities.map(
-          async (op: { job_title: string; match_percent: number; local_wage: string }) => {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 6000);
-            try {
-              const tavilyRes = await fetch("https://api.tavily.com/search", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${TAVILY_API_KEY}`,
-                },
-                body: JSON.stringify({
-                  query: `${op.job_title} jobs in ${country} hiring now`,
-                  search_depth: "basic",
-                  max_results: 3,
-                  include_answer: false,
-                }),
-                signal: controller.signal,
-              });
-              if (!tavilyRes.ok) {
-                console.error("Tavily error", tavilyRes.status, await tavilyRes.text());
-                return { ...op, listings: [] };
-              }
-              const tavilyData = await tavilyRes.json();
-              const listings = (tavilyData.results || [])
-                .slice(0, 3)
-                .map((r: { title: string; url: string; content?: string }) => ({
-                  title: r.title,
-                  url: r.url,
-                  snippet: (r.content || "").slice(0, 160),
-                }));
-              return { ...op, listings };
-            } catch (err) {
-              console.error("Tavily fetch failed:", err);
-              return { ...op, listings: [] };
-            } finally {
-              clearTimeout(timeout);
-            }
-          },
-        ),
+        enrichedOpportunities.map(async (op) => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 6000);
+          try {
+            const tavilyRes = await fetch("https://api.tavily.com/search", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${TAVILY_API_KEY}`,
+              },
+              body: JSON.stringify({
+                query: `${op.job_title} jobs in ${country} hiring now`,
+                search_depth: "basic",
+                max_results: 3,
+                include_answer: false,
+              }),
+              signal: controller.signal,
+            });
+            if (!tavilyRes.ok) return { ...op, listings: [] };
+            const tavilyData = await tavilyRes.json();
+            const listings = (tavilyData.results || [])
+              .slice(0, 3)
+              .map((r: { title: string; url: string; content?: string }) => ({
+                title: r.title,
+                url: r.url,
+                snippet: (r.content || "").slice(0, 160),
+              }));
+            return { ...op, listings };
+          } catch {
+            return { ...op, listings: [] };
+          } finally {
+            clearTimeout(timeout);
+          }
+        }),
       );
-      result.opportunities = tavilyResults.map((r, i) =>
-        r.status === "fulfilled" ? r.value : { ...result.opportunities[i], listings: [] },
+      opportunitiesWithListings = tavilyResults.map((r, i) =>
+        r.status === "fulfilled" ? r.value : { ...enrichedOpportunities[i], listings: [] },
       );
     }
+
+    // ---- 7. Return the enriched payload. The new `signals` block is what
+    // the UI surfaces as "real econometric data with sources".
+    const result = {
+      skills: enrichedSkills,
+      ai_risk_score,
+      ai_risk_level,
+      opportunities: opportunitiesWithListings,
+      signals: {
+        automation: {
+          source: "Frey & Osborne (2017), The Future of Employment",
+          source_short: "Frey-Osborne 2017",
+          method:
+            "Per-skill probability mapped from SOC to ISCO-08; the worker's resilience score is derived from their most-protected skill.",
+        },
+        wages: {
+          source: "ILOSTAT — Mean nominal monthly earnings of employees by occupation (ISCO-08)",
+          source_short: "ILOSTAT",
+          year: opportunitiesWithListings.find((o) => o.wage_year)?.wage_year ?? null,
+          country,
+        },
+        education_trend: educationTrend,
+      },
+      limits:
+        "Wages are national medians by ISCO major group, not local offers. Automation probabilities are derived from Frey-Osborne (US labor market) and may understate manual-task resilience in LMIC contexts. Use as guidance, not as a guarantee.",
+    };
 
     return new Response(JSON.stringify(result), {
       status: 200,
