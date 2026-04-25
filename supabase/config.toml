@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.chat-followup]
 verify_jwt = false
+
+[functions.tts]
+verify_jwt = false
