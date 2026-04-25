@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowLeft,
   BookOpen,
@@ -8,8 +9,11 @@ import {
   Coins,
   Database,
   Download,
+  ExternalLink,
+  Globe,
   History as HistoryIcon,
   Info,
+  Share2,
   ShieldAlert,
   Sparkles,
   TrendingUp,
@@ -27,6 +31,7 @@ import {
   lookupWage,
   wittgensteinProjections,
 } from "@/utils/econometricData";
+import { lookupEsco } from "@/utils/escoCrosswalk";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
 
 interface Skill {
@@ -69,6 +74,7 @@ interface Signals {
 
 interface Analysis {
   id: string;
+  share_id: string;
   session_id: string;
   skills: Skill[];
   ai_score: number;
@@ -119,7 +125,7 @@ function ResultsScreen() {
     const fetchAnalysis = async () => {
       let query = supabase
         .from("analyses")
-        .select("id, session_id, skills, ai_score, risk_level, jobs, signals")
+        .select("id, share_id, session_id, skills, ai_score, risk_level, jobs, signals")
         .eq("user_id", user.id);
       if (id) {
         query = query.eq("id", id);
@@ -369,19 +375,30 @@ function ResultsContent({
                     : pct >= 40
                       ? "bg-warning/15 text-[color:oklch(0.45_0.13_55)]"
                       : "bg-success/10 text-success";
+              const esco = lookupEsco(s.isco_code);
               return (
                 <motion.span
                   key={`${s.isco_code}-${idx}`}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.04, duration: 0.25 }}
-                  className="inline-flex items-center gap-2 rounded-full bg-[color:var(--primary-soft)] px-4 py-2 text-sm font-semibold text-[color:var(--primary-deep)] shadow-[var(--shadow-card)]"
-                  title={s.automation_source ? `${copy.sourceLabel}: ${s.automation_source}` : undefined}
+                  className="inline-flex flex-wrap items-center gap-2 rounded-full bg-[color:var(--primary-soft)] px-4 py-2 text-sm font-semibold text-[color:var(--primary-deep)] shadow-[var(--shadow-card)]"
+                  title={`${esco.esco_label_en}${s.automation_source ? ` · ${copy.sourceLabel}: ${s.automation_source}` : ""}`}
                 >
                   {s.name}
                   <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold tracking-wide text-[color:var(--primary-deep)]/80">
                     ISCO {s.isco_code}
                   </span>
+                  <a
+                    href={esco.esco_uri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold tracking-wide text-[color:var(--primary-deep)]/80 hover:bg-white"
+                  >
+                    ESCO {esco.esco_code}
+                    <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
                   {pct !== null && (
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone}`}>
                       🤖 {pct}%
@@ -394,9 +411,15 @@ function ResultsContent({
           <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Database className="h-3 w-3" />
             <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
-            <span>Frey &amp; Osborne (2017)</span>
+            <span>Frey &amp; Osborne (2017) · ESCO v1.2</span>
           </p>
         </Section>
+
+        <ShareProfileSection
+          analysis={analysis}
+          enrichedSkills={enrichedSkills}
+          enrichedJobs={enrichedJobs}
+        />
 
         <Section
           icon={<ShieldAlert className="h-4 w-4" />}
@@ -650,3 +673,164 @@ function Section({
     </motion.section>
   );
 }
+
+interface ShareProfileSectionProps {
+  analysis: Analysis;
+  enrichedSkills: Skill[];
+  enrichedJobs: Opportunity[];
+}
+
+function ShareProfileSection({
+  analysis,
+  enrichedSkills,
+  enrichedJobs,
+}: ShareProfileSectionProps) {
+  const [copied, setCopied] = useState(false);
+
+  const profileUrl = useMemo(() => {
+    if (typeof window === "undefined") return `https://sawt-net.app/p/${analysis.share_id}`;
+    return `${window.location.origin}/p/${analysis.share_id}`;
+  }, [analysis.share_id]);
+
+  const portableProfile = useMemo(
+    () => ({
+      schema: "sawtnet.profile.v1",
+      generated_at: new Date().toISOString(),
+      profile_url: profileUrl,
+      share_id: analysis.share_id,
+      ai_resilience_score: analysis.ai_score,
+      risk_level: analysis.risk_level,
+      skills: enrichedSkills.map((s) => {
+        const esco = lookupEsco(s.isco_code);
+        return {
+          name: s.name,
+          isco_code: s.isco_code,
+          esco_code: esco.esco_code,
+          esco_label: esco.esco_label_en,
+          esco_uri: esco.esco_uri,
+          automation_probability: s.automation_probability,
+        };
+      }),
+      opportunities: enrichedJobs.map((j) => {
+        const esco = lookupEsco(j.isco_code ?? "");
+        return {
+          job_title: j.job_title,
+          isco_code: j.isco_code,
+          esco_code: esco.esco_code,
+          esco_label: esco.esco_label_en,
+          esco_uri: esco.esco_uri,
+          match_percent: j.match_percent,
+          local_wage: j.local_wage,
+          wage_source: j.wage_source,
+          wage_year: j.wage_year,
+        };
+      }),
+      signals: analysis.signals ?? {},
+      sources: {
+        skills_taxonomy: "ISCO-08 (ILO) + ESCO v1.2 (European Commission)",
+        automation: "Frey & Osborne (2017)",
+        wages: "ILOSTAT — Mean nominal monthly earnings of employees by occupation",
+        education_trend: wittgensteinProjections.source,
+      },
+    }),
+    [analysis, enrichedSkills, enrichedJobs, profileUrl],
+  );
+
+  const downloadJson = () => {
+    const blob = new Blob([JSON.stringify(portableProfile, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sawtnet-profile-${analysis.share_id}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Portable profile downloaded");
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      setCopied(true);
+      toast.success("Public link copied");
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      toast.error("Could not copy");
+    }
+  };
+
+  const sharePublic = async () => {
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await navigator.share({
+          title: "My Sawt-Net skills profile",
+          text: "ISCO-08 + ESCO portable skills profile.",
+          url: profileUrl,
+        });
+        return;
+      } catch {
+        // user cancelled — fall through to copy
+      }
+    }
+    copyLink();
+  };
+
+  return (
+    <motion.section
+      variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
+      className="rounded-2xl bg-gradient-to-br from-[color:var(--primary-soft)] to-card p-5 shadow-[var(--shadow-floating)] ring-1 ring-primary/20"
+    >
+      <div className="mb-1 flex items-center gap-2 text-primary">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-[color:var(--primary-deep)]">
+          <Share2 className="h-4 w-4" />
+        </span>
+        <h2 className="text-base font-extrabold tracking-tight text-foreground">
+          Portable Profile
+        </h2>
+      </div>
+      <p className="mb-4 text-xs font-medium text-muted-foreground">
+        Share your ISCO-08 + ESCO profile across borders. Works without an account.
+      </p>
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="shrink-0 self-center rounded-xl bg-white p-2.5 shadow-[var(--shadow-card)]">
+          <QRCodeSVG value={profileUrl} size={96} level="M" includeMargin={false} />
+        </div>
+        <div className="min-w-0 flex-1 space-y-2.5">
+          <div className="break-all rounded-lg bg-white/70 px-3 py-2 text-[11px] font-mono text-[color:var(--primary-deep)]">
+            {profileUrl}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={sharePublic}
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary to-[var(--primary-glow)] px-3.5 py-1.5 text-xs font-bold text-primary-foreground shadow-[var(--shadow-card)]"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              Share link
+            </button>
+            <button
+              type="button"
+              onClick={copyLink}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-[color:var(--primary-deep)] shadow-[var(--shadow-card)]"
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+            <button
+              type="button"
+              onClick={downloadJson}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-[color:var(--primary-deep)] shadow-[var(--shadow-card)]"
+            >
+              <Download className="h-3.5 w-3.5" />
+              JSON
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
