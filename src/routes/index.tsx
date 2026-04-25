@@ -161,10 +161,19 @@ function ChatScreen() {
     }
   }, [user, authLoading, navigate]);
 
-  // Show STT error toast
+  // Show STT error toast — and reveal the text fallback so the user is never
+  // stuck if their connection or mic isn't cooperating.
   useEffect(() => {
-    if (error) toast.error(error);
+    if (error) {
+      toast.error(error);
+      setShowTextInput(true);
+    }
   }, [error]);
+
+  // If voice isn't supported at all, surface the text input from the start.
+  useEffect(() => {
+    if (!supported) setShowTextInput(true);
+  }, [supported]);
 
   // Cancel any in-flight speech when the user starts talking again.
   useEffect(() => {
