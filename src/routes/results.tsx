@@ -27,6 +27,7 @@ import {
   lookupWage,
   wittgensteinProjections,
 } from "@/utils/econometricData";
+import { CountrySwitcher } from "@/components/CountrySwitcher";
 
 interface Skill {
   name: string;
@@ -165,13 +166,16 @@ function ResultsScreen() {
               <p className="text-xs font-medium text-muted-foreground">{copy.poweredBy}</p>
             </div>
           </div>
-          <Link
-            to="/history"
-            aria-label={copy.history}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted transition hover:bg-accent"
-          >
-            <HistoryIcon className="h-5 w-5" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <CountrySwitcher />
+            <Link
+              to="/history"
+              aria-label={copy.history}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted transition hover:bg-accent"
+            >
+              <HistoryIcon className="h-5 w-5" />
+            </Link>
+          </div>
         </div>
       </header>
 
