@@ -450,10 +450,10 @@ function ResultsContent({
         <Section
           icon={<Briefcase className="h-4 w-4" />}
           title={copy.jobsTitle}
-          subtitle={copy.jobsSubtitle(analysis.jobs.length)}
+          subtitle={copy.jobsSubtitle(enrichedJobs.length)}
         >
           <div className="space-y-3">
-            {analysis.jobs.map((j, idx) => (
+            {enrichedJobs.map((j, idx) => (
               <motion.div
                 key={`${j.job_title}-${idx}`}
                 initial={{ opacity: 0, y: 8 }}
