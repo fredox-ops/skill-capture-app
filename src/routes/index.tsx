@@ -440,6 +440,26 @@ function ChatScreen() {
     );
   }
 
+  // Voice-first onboarding takes over the entire viewport on first visit.
+  // It captures country/language by voice, persists it to the profile, then
+  // hands control back to the main chat (which will pick up the new lang
+  // and greet them in their tongue thanks to the existing greeting effect).
+  if (onboarding && user) {
+    return (
+      <MobileShell>
+        <OnboardingFlow
+          onComplete={() => {
+            // Reset the chat's initial bubble so the next render uses the
+            // freshly-detected language. The greeting effect will re-speak
+            // it automatically.
+            greetedRef.current = false;
+            setOnboarding(false);
+          }}
+        />
+      </MobileShell>
+    );
+  }
+
   return (
     <MobileShell>
       {/* Header */}
