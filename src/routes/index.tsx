@@ -312,7 +312,8 @@ function ChatScreen() {
       // failures on weak 3G are transient timeouts that succeed on retry.
       const MAX_ATTEMPTS = 3;
       let lastErr: unknown = null;
-      let aiData: { skills: unknown; ai_risk_score: unknown; ai_risk_level: unknown; opportunities: unknown } | null = null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let aiData: any = null;
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         setAnalyzeAttempt(attempt);
         try {
