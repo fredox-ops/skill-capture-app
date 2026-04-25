@@ -20,6 +20,7 @@ export function useSpeech() {
   const unlockedRef = useRef(false);
 
   // Keep a fresh list of voices. getVoices() can return [] until voiceschanged fires.
+  const [voicesReady, setVoicesReady] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       setSupported(false);
@@ -28,11 +29,16 @@ export function useSpeech() {
     setSupported(true);
 
     const refresh = () => {
-      voicesRef.current = window.speechSynthesis.getVoices();
+      const v = window.speechSynthesis.getVoices();
+      voicesRef.current = v;
+      if (v.length > 0) setVoicesReady(true);
     };
     refresh();
     window.speechSynthesis.addEventListener("voiceschanged", refresh);
+    // Some browsers (Chrome) need a kick to populate voices.
+    const t = setTimeout(refresh, 250);
     return () => {
+      clearTimeout(t);
       window.speechSynthesis.removeEventListener("voiceschanged", refresh);
       window.speechSynthesis.cancel();
     };
