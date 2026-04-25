@@ -1,149 +1,101 @@
+# Plan — Close the remaining UNMAPPED brief gaps
 
-# UNMAPPED Hackathon — Honest Audit of Sawt-Net
+You've already shipped the hard stuff (real Frey-Osborne + ILOSTAT + Wittgenstein signals, voice-first UX, policymaker dashboard, ISCO-08 mapping). This plan covers the **7 remaining items the brief explicitly asks for** that aren't in the code yet.
 
-I went through the brief line by line and matched it to what's actually in your codebase (`analyze-skills`, `chat-followup`, `cover-letter`, `tts` edge functions; `OnboardingFlow`, `results.tsx`, `CvModal`, `SmartApplyModal`, `results-i18n`). Here is the truth — no fluff.
-
----
-
-## ✅ What you already do well (keep)
-
-| Requirement | Status | Where |
-|---|---|---|
-| **Voice-first UX for low-literacy users** | ✅ Strong | `OnboardingFlow`, mic-only chat, TTS auto-play, audio error cues |
-| **Multilingual / localizable UI** (Arabic/Darija, French, English, Hindi + RTL) | ✅ Strong | `results-i18n.ts`, `getRecognitionLang`, per-language greetings |
-| **ISCO-08 skills mapping** (Module 1 backbone) | ✅ Done | `analyze-skills` returns `{name, isco_code}` per skill |
-| **AI displacement risk score + level** (Module 2 core) | ✅ Done | `ai_risk_score`, `ai_risk_level` (Low/Med/High), color-coded |
-| **Opportunity matching with local wage + live listings** (Module 3 core) | ✅ Done | `opportunities[]` + Tavily-enriched real job listings |
-| **Country switching (Morocco / India)** | ✅ Partial | wage currency + country prompt vary |
-| **CV generator + Smart Apply cover letter** | ✅ Bonus | `CvModal`, `cover-letter` function |
-| **Low-bandwidth resilience** | ✅ Strong | retry loop, audio-visual fallbacks, no text input required |
-
-You're already ahead of most generic "youth dashboard" submissions.
+I'll do this in 4 phases. Each is independently shippable. Phases A + B alone clear the "country-agnostic infrastructure" requirement, which is the single biggest gap.
 
 ---
 
-## ❌ What the brief explicitly requires that you DON'T do yet
+## Phase A — Country-agnostic config layer (gaps G1, G5)
 
-These are the gaps the judges will mark you down for. Ranked by how badly they hurt your score.
+**Why:** The brief says *"Country-specific parameters should be inputs to your system, not hardcoded assumptions"* and asks you to *"show what it would take to reconfigure for a second context"*. Today, country names, currencies, languages, and prompts are hardcoded TS strings.
 
-### 🔴 CRITICAL — required by the brief, currently missing
+**Database**
+- New table `country_configs` with columns: `iso3` (PK), `display_name`, `currency`, `primary_language`, `secondary_languages` (text[]), `automation_calibration_factor` (numeric, default 1.0), `opportunity_types` (text[], e.g. `['formal','gig','self_employment','training']`), `digital_readiness_pct` (numeric, ITU mobile-broadband %), `created_at`.
+- RLS: read = public (anon allowed for the demo switcher); write = admin only.
+- Seed rows for **Morocco, India, Ghana, Kenya** using values from your existing JSON datasets.
 
-1. **No real econometric data sources surfaced to the user** *(Required: "Must surface at least two real econometric signals visibly to the user — not buried in the algorithm")*
-   - You show an AI-guessed `ai_risk_score` and an AI-guessed `local_wage`. Both are **LLM hallucinations**, not real data.
-   - Brief demands ≥2 signals from named sources: ILOSTAT, World Bank WDI/HCI, Frey-Osborne, ILO task indices, World Bank STEP, Wittgenstein Centre.
-   - **This alone can disqualify you from the "strong submission" tier.**
+**Edge function refactor**
+- `analyze-skills` reads country config from the DB instead of `country === "India"` literals. Pass `automation_calibration_factor` into the resilience-score formula so LMIC contexts can be tuned (brief: *"automation risk looks different in Kampala than in Kuala Lumpur"*).
+- `chat-followup` and `cover-letter` read `primary_language` / `secondary_languages` the same way.
 
-2. **No real automation exposure dataset** *(Required: "at least one real automation exposure dataset (e.g. Frey-Osborne, ILO task indices, World Bank STEP)")*
-   - Your AI-risk score is currently vibes-based. It must be calibrated against a real dataset keyed by ISCO-08 code.
+**UI**
+- New header dropdown (visible on `/`, `/results`, `/policy`) that lists all `country_configs` rows. Selecting one updates `profiles.country` + `profiles.language` and triggers a soft reload of any displayed signals. **This is the live demo moment.**
+- New route `/admin/configs` (gated by `admin` role you already have) that lists all configs and lets you add a new country in <60 seconds.
+- Add `docs/CONFIGURING_A_NEW_COUNTRY.md` so judges can read the contract.
 
-3. **Country-agnostic / pluggable infrastructure** *(Required: "must not be hardcoded to one country", config-driven)*
-   - Country list, currency, language, automation calibration, and wage data are all hardcoded in TS strings & prompts.
-   - Brief explicitly asks: *"show your tool configured for one context, then show what it would take to reconfigure for a second"*. You cannot do this today without editing source.
-
-4. **No Wittgenstein Centre 2025–2035 education projections** *(Required for Module 2)*
-   - Brief: *"Use the Wittgenstein Centre 2025–2035 education projections to show how the landscape is shifting, not just where it stands today."*
-
-5. **No policymaker / aggregate dashboard** *(Required for Module 3: "dual interface — one for the youth user, one for a policymaker")*
-   - You only have the youth view.
-
-### 🟠 HIGH — strongly implied, missing
-
-6. **Portable / shareable skills profile** *(Required for Module 1: "portable across borders & sectors")*
-   - Profile lives in your DB only. No export (JSON/QR/shareable URL) so Amara can carry it to a new employer.
-
-7. **No "adjacent skills to increase resilience" recommendation** *(Required for Module 2)*
-   - You report risk but don't tell the user *which durable skills to add next*.
-
-8. **No "honest about limits" disclosure** *(Brief explicitly rewards this)*
-   - Strong submissions "are honest about what they don't know." You currently present AI guesses as facts.
-
-### 🟡 MEDIUM — would clearly differentiate vs MIT teams
-
-9. **No ESCO / O*NET cross-mapping** alongside ISCO (brief lists all three as the taxonomy backbone)
-10. **No ITU digital readiness signal** to calibrate digital-skills suggestions per country
-11. **No demonstration of reconfiguring for a second country** in the demo flow itself
+**Files touched:** new migration; `supabase/functions/analyze-skills/index.ts`; `supabase/functions/_shared/econ-data/lookup.ts` (reads calibration); new `src/components/CountrySwitcher.tsx`; new `src/routes/admin.configs.tsx`; new doc.
 
 ---
 
-## 🏆 Plan to close the gaps and win
+## Phase B — Portable skills profile + ESCO mapping (gaps G2, G4)
 
-I'll do this in **5 focused phases**. Each is shippable on its own; even phases 1–3 alone would move you from "nice voice app" to "strong UNMAPPED submission".
+**Why:** Module 1 explicitly requires *"portable across borders & sectors"*. Today the profile only lives behind auth in your DB. The brief also lists **ESCO** alongside ISCO as a required taxonomy.
 
-### Phase 1 — Real econometric signals (kills gaps #1, #2, #4, #8)
-**Single biggest scoring win.** Stop hallucinating, start citing.
+**Portable profile**
+- Add `analyses.share_id` (text, unique, default `gen_random_uuid()::text`) so each profile gets a stable public URL.
+- New public route `/p/$shareId` rendering a read-only, printable profile card: name, ISCO + ESCO codes per skill, AI-resilience score with source, top 3 opportunities, QR code (use `qrcode.react` — pure JS, Worker-safe).
+- New RLS policy: anyone (anon) can `SELECT` an `analyses` row when querying by `share_id` (without exposing `user_id` — fetched via a security-definer function `get_public_analysis(share_id)`).
+- "Download as JSON" + "Copy share link" buttons on `/results` next to "Download CV".
 
-- Add `supabase/functions/_shared/econ-data/` with three small JSON datasets bundled into the function (no external API calls at runtime — works on weak 3G):
-  - `frey-osborne.json` — automation probability (0–1) keyed by ISCO-08 4-digit code (derived from the published Frey-Osborne SOC→probability table, mapped to ISCO via the ILO crosswalk).
-  - `ilo-wages.json` — median monthly wage by ISCO-08 + country (ISO-3) from ILOSTAT mean-nominal-wage tables. Cover the demo countries (MAR, IND, GHA, KEN to start).
-  - `wittgenstein-2035.json` — projected % of population with secondary+ education by country, 2025 vs 2035 (Wittgenstein SSP2 scenario, trimmed to demo countries).
-- Rewrite `analyze-skills` so the LLM only extracts `{name, isco_code}` — **all numeric signals come from the JSON lookups**, not from the model.
-- For each ISCO code, return:
-  - `automation_probability` + source: "Frey & Osborne (2017)"
-  - `local_wage_median` + source: "ILOSTAT mean nominal wage, 2023"
-  - `education_trend_2025_2035` + source: "Wittgenstein Centre, SSP2"
-- Show **source citations under every number** in the Results UI ("source: ILOSTAT 2023"). This single change is what "strong submissions surface the data" means.
-- Add a tiny "honest limits" footer: *"Wages are national medians, not local offers. Automation scores are derived from Frey-Osborne and may understate manual-task resilience in LMIC contexts."*
+**ESCO mapping**
+- Bundle a trimmed ISCO-08 → ESCO occupation crosswalk (~100 KB JSON, just the codes you actually surface) at `supabase/functions/_shared/econ-data/isco-esco.json`.
+- `lookup.ts` gets `lookupEsco(iscoCode)` returning `{ esco_uri, esco_label_en }`.
+- `analyze-skills` returns `esco_uri` per skill; UI shows ISCO + ESCO chips side-by-side on the portable profile (and on `/results` in a small expander).
 
-### Phase 2 — Country-agnostic config layer (kills gap #3)
-Make localizability a **design feature**, not a slide.
-
-- New table `country_configs` with columns: `iso3, display_name, currency, primary_language, secondary_languages[], wage_source_id, automation_calibration_factor, opportunity_types[]`.
-- New table `taxonomy_overrides` so a country admin can map a local credential ("Bac+2 Maroc") to an ISCO code.
-- Refactor `analyze-skills` and the chat prompts to read from `country_configs` instead of `if (country === "India")` literals.
-- Add an admin route `/admin/configure` (gated) that shows all current configs and lets you add a new country in <60 seconds. **This is the demo moment**: live-add Ghana on stage.
-- Document the contract in a `CONFIGURING_A_NEW_COUNTRY.md` so judges can read it.
-
-### Phase 3 — Policymaker dashboard ✅ SHIPPED (kills gap #5)
-Required by Module 3. Without it, Module 3 is incomplete.
-
-- New route `/policy` with aggregate, anonymised views of all `analyses` rows:
-  - Skill-supply heatmap by ISCO-08 2-digit group
-  - Average automation exposure of analyzed cohort vs national Frey-Osborne baseline
-  - Wage gap: median LLM-extracted opportunity wage vs ILOSTAT median for matched ISCO code
-  - Education-projection overlay (Wittgenstein 2025 vs 2035) so policymakers see where the cohort sits relative to the country's trajectory
-- Add a `policymaker` role in `user_roles` (you already have the auth/role infra patterns); RLS so only that role sees aggregates, never PII or individual transcripts.
-- Export-as-CSV button so an NGO can pull the data into their own tools.
-
-### Phase 4 — Portable & resilient skills profile (kills gaps #6, #7, #9)
-Make Amara *own* her profile.
-
-- Add a `/profile/:share_id` public read-only route that renders her skills card with ISCO + ESCO codes side-by-side and a QR code. She can show it on any phone, in any office.
-- Add ESCO mapping: bundle the official ISCO-08 → ESCO occupation crosswalk JSON (~1MB, ships in the function) and append `esco_uri` to each skill.
-- Add an "adjacent durable skills" block: for each detected ISCO code, suggest 2 ESCO skills from the same occupation cluster with **lower** Frey-Osborne automation probability. This is the *resilience* recommendation the brief asks for.
-- Add a "Download as JSON" button next to "Download CV" — the portable profile, machine-readable, the brief's Module 1 spirit.
-
-### Phase 5 — Demo polish to beat MIT (kills gap #11)
-Judges remember the demo, not the README.
-
-- Live country switcher in the header: Morocco → Ghana mid-demo, watch wages, automation scores, language, and currency all reload from `country_configs`. **This is your "infrastructure not app" proof point.**
-- Add an ITU digital-penetration footnote per country ("48% mobile broadband — we will not suggest remote-only roles") so suggestions are calibrated, not aspirational.
-- Replace the Tavily generic search with a query that includes the ISCO code + country wage band so listings match Amara's *realistic* range, not aspirational ones.
-- Add a 30-second on-page "What we don't know" panel listing the limits — judges explicitly reward this.
+**Files touched:** new migration; new JSON; `lookup.ts`; `analyze-skills`; new `src/routes/p.$shareId.tsx`; `src/routes/results.tsx` (share buttons + ESCO chips); `bun add qrcode.react`.
 
 ---
 
-## What this looks like score-wise
+## Phase C — Adjacent durable skills + ITU digital readiness (gaps G3, G6)
 
-| Brief criterion | Today | After phases 1–3 | After all 5 |
+**Why:** Module 2 requires *"what adjacent skills would increase resilience"*. ITU digital-readiness was listed as a calibration source. Both are currently absent.
+
+**Adjacent skills**
+- New `supabase/functions/_shared/econ-data/adjacent-skills.json`: for each ISCO major group, 3 ESCO skills with **lower** Frey-Osborne probability (e.g. for `7422 ICT install` → `digital troubleshooting`, `customer onboarding`, `network basics`).
+- `analyze-skills` appends a `resilience_skills[]` block per skill.
+- New "Build resilience next" card on `/results`: shows the 3 adjacent skills as teal pill tags + a one-line "why this is more durable" footnote per skill.
+
+**ITU digital readiness**
+- Add `digital_readiness_pct` per country (Phase A column). Bundle ITU mobile-broadband-penetration values for the 4 demo countries.
+- Render an honest banner on `/results`: *"Mobile broadband reach in {country}: {pct}% — we filter out remote-only roles below 60%."*
+- Filter `opportunities` server-side: skip remote-only suggestions when penetration < 60%.
+
+**Files touched:** new JSON; `lookup.ts`; `analyze-skills`; `src/routes/results.tsx` (resilience card + ITU banner); seed update for `country_configs`.
+
+---
+
+## Phase D — Configurable opportunity types + demo polish (gap G7)
+
+**Why:** Brief lists *"formal employment, self-employment, gig, training pathways"* as configurable opportunity types. Today only formal jobs are surfaced.
+
+- `country_configs.opportunity_types` already added in Phase A. Use it now.
+- `analyze-skills` returns 1 opportunity per type listed in the country's config (not always 3 formal). Each opportunity gets a `type` field.
+- Results UI groups opportunities under tabs/sections per type with localized labels and matching icons (briefcase / handshake / wrench / graduation cap).
+- Add a small "What we don't know" panel on `/results` (judges explicitly reward honesty) listing the limits: national medians, Frey-Osborne LMIC caveats, no real-time wage data, ESCO crosswalk coverage gaps.
+
+**Files touched:** `analyze-skills`; `src/routes/results.tsx`; `src/lib/results-i18n.ts` (new labels).
+
+---
+
+## What this delivers vs the brief
+
+| Brief criterion | Today | After A+B | After all 4 |
 |---|---|---|---|
-| Module 1 — Skills Signal Engine | Partial | Strong | **Excellent** |
-| Module 2 — AI Readiness Lens | Partial (no real data) | Strong | **Excellent** |
-| Module 3 — Opportunity + Econometric | Weak (no policymaker view) | Strong | **Excellent** |
-| Country-agnostic infrastructure | ❌ | ✅ | ✅ + live demo |
-| ≥2 real econometric signals visible | ❌ | ✅ | ✅ |
-| ≥1 real automation dataset | ❌ | ✅ (Frey-Osborne) | ✅ |
-| Wittgenstein projections | ❌ | ✅ | ✅ |
-| Honest about limits | ❌ | ✅ | ✅ |
-| Designed for constraint | ✅ | ✅ | ✅ |
+| Module 1 — portable, explainable | Strong | **Excellent** (ESCO + share URL + JSON) | Excellent |
+| Module 2 — incl. adjacent skills | Strong (no adjacent) | Strong | **Excellent** |
+| Module 3 — incl. configurable opp types | Strong | Strong | **Excellent** |
+| Country-agnostic infrastructure | ❌ | ✅ + live switcher | ✅ + admin UI + docs |
+| ≥2 real econometric signals visible | ✅ | ✅ | ✅ |
+| Honest about limits | ✅ | ✅ | ✅ + dedicated panel |
+| ITU digital readiness | ❌ | ❌ | ✅ |
+| Demo: reconfigure for a second country live | ❌ | ✅ (header dropdown) | ✅ |
 
 ---
 
-## My recommendation
+## Recommended order if time is tight
 
-If you have **limited time before judging**: do Phase 1 + Phase 3 only. Phase 1 gives you the two real econometric signals + automation dataset (kills the disqualifier). Phase 3 gives you the policymaker view (completes Module 3). That alone clears the "strong submission" bar.
+- **Half-day budget:** Phase A only. Single biggest remaining scoring win — turns "an app" into "infrastructure" (the literal brief word).
+- **Full-day budget:** A → B → C → D in order. Phase B's public share URL is what Amara would actually carry to a new employer; Phase C is the resilience story the judges will ask about.
 
-If you have **a full day**: do Phases 1 → 5 in order. Phase 5's live country switch is what beats MIT — it turns your project from "an app" into "infrastructure," which is the literal word the brief uses.
-
----
-
-**Want me to start?** Approve this plan and I'll begin with Phase 1 (real econometric signals) — the single highest-impact change. I'll come back for sign-off before each subsequent phase so you stay in control.
+After approval I'll start with **Phase A** (DB migration + `country_configs` table + edge-function refactor + header switcher + admin route). I'll come back for sign-off before each subsequent phase so you stay in control.

@@ -58,6 +58,45 @@ export type Database = {
           },
         ]
       }
+      country_configs: {
+        Row: {
+          automation_calibration_factor: number
+          created_at: string
+          currency: string
+          digital_readiness_pct: number
+          display_name: string
+          iso3: string
+          opportunity_types: string[]
+          primary_language: string
+          secondary_languages: string[]
+          updated_at: string
+        }
+        Insert: {
+          automation_calibration_factor?: number
+          created_at?: string
+          currency: string
+          digital_readiness_pct?: number
+          display_name: string
+          iso3: string
+          opportunity_types?: string[]
+          primary_language: string
+          secondary_languages?: string[]
+          updated_at?: string
+        }
+        Update: {
+          automation_calibration_factor?: number
+          created_at?: string
+          currency?: string
+          digital_readiness_pct?: number
+          display_name?: string
+          iso3?: string
+          opportunity_types?: string[]
+          primary_language?: string
+          secondary_languages?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
