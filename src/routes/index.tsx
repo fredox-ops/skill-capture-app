@@ -7,7 +7,11 @@ import { MobileShell } from "@/components/MobileShell";
 import { SettingsModal } from "@/components/SettingsModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-import { useSpeechRecognition, getRecognitionLang } from "@/hooks/useSpeechRecognition";
+import {
+  useSpeechRecognition,
+  getRecognitionLang,
+  RECOGNITION_LANG_LABELS,
+} from "@/hooks/useSpeechRecognition";
 import { supabase } from "@/integrations/supabase/client";
 
 type AnalyzeStep = "idle" | "saving-transcript" | "calling-ai" | "saving-results";
@@ -63,7 +67,7 @@ function ChatScreen() {
     stop();
     const text = transcript.trim();
     if (!text) {
-      toast.error("I didn't catch that. Try again.");
+      // Silently reset on empty release — no toast spam if the user just tapped.
       reset();
       return;
     }
@@ -78,6 +82,19 @@ function ChatScreen() {
         },
       ]);
     }, 400);
+  };
+
+  // ---- Press-and-hold mic handlers ----------------------------------------
+  // Pointer events cover mouse + touch + pen on modern browsers. We also wire
+  // keyboard (Space) for accessibility.
+  const handleHoldStart = (e: React.PointerEvent | React.KeyboardEvent) => {
+    if (!supported || listening || analyzing) return;
+    if ("preventDefault" in e) e.preventDefault();
+    start();
+  };
+  const handleHoldEnd = () => {
+    if (!listening) return;
+    stopAndPush();
   };
 
   const lastUserMessage = [...bubbles].reverse().find((b) => b.from === "user")?.text;
