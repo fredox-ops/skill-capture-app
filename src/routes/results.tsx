@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowLeft,
   BookOpen,
@@ -8,8 +9,11 @@ import {
   Coins,
   Database,
   Download,
+  ExternalLink,
+  Globe,
   History as HistoryIcon,
   Info,
+  Share2,
   ShieldAlert,
   Sparkles,
   TrendingUp,
@@ -27,6 +31,7 @@ import {
   lookupWage,
   wittgensteinProjections,
 } from "@/utils/econometricData";
+import { lookupEsco } from "@/utils/escoCrosswalk";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
 
 interface Skill {
