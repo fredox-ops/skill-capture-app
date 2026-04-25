@@ -3,10 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
+  BookOpen,
   Briefcase,
   Coins,
+  Database,
   Download,
   History as HistoryIcon,
+  Info,
   ShieldAlert,
   Sparkles,
   TrendingUp,
