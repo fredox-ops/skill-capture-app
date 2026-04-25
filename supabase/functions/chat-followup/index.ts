@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, country = "Morocco" } = await req.json();
+    const { messages, country = "Morocco", user_lang } = await req.json();
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: "No messages provided." }), {
@@ -44,13 +44,23 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
+    const allowedLangs = ["ar-MA", "en-US", "fr-FR", "hi-IN"] as const;
+    const langHint = allowedLangs.includes(user_lang) ? user_lang : null;
+
     const systemPrompt = `You are Sawt-Net, an empathetic voice-first career assistant for young workers in the informal economy.
 
 Your job: continue the conversation naturally and collect richer details about the user's real work skills.
 
-Rules:
-- Detect the language of the user's latest message and reply in that same language.
+LANGUAGE RULES (HIGHEST PRIORITY):
+- Your reply MUST be in the EXACT same language and script as the user's MOST RECENT message.
+- ${langHint ? `The user spoke this turn in: ${langHint}. Reply in that language.` : "Detect the language of the latest user message and reply in it."}
 - If the user uses Moroccan Darija, reply in Moroccan Darija using Arabic script.
+- If the user writes in English, reply in English.
+- If the user writes in French, reply in French.
+- If the user writes in Hindi, reply in Hindi (Devanagari).
+- Never switch to a different language than the user's latest message, even if earlier messages were in another language.
+
+CONVERSATION RULES:
 - Do NOT repeat any previous assistant question from the conversation.
 - Ask exactly ONE short follow-up question, maximum 18 words.
 - Never ask two questions in the same reply.
@@ -58,7 +68,9 @@ Rules:
 - Sound warm, human, and simple like WhatsApp.
 - Focus on one concrete work detail only: tools, tasks, experience, customers, problems solved, teamwork, safety, certifications, or daily routine.
 - Do not analyze yet. Do not list jobs yet. Do not mention AI or scores.
-- Country context: ${country}.`;
+- Country context: ${country}.
+
+The speech_lang field MUST match the language of YOUR reply (the same language as the latest user message).`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -91,7 +103,7 @@ Rules:
                   speech_lang: {
                     type: "string",
                     enum: ["ar-MA", "en-US", "fr-FR", "hi-IN"],
-                    description: "Best browser TTS locale for this reply.",
+                    description: "BCP-47 locale matching the language of the reply (same as user's latest message).",
                   },
                   direction: {
                     type: "string",

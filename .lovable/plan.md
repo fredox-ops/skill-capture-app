@@ -1,95 +1,70 @@
-## Problem
+# Why the bot doesn't follow your language (and why audio sounds wrong)
 
-Two issues:
+After reading the chat code I found **two real bugs** that explain what you're seeing:
 
-1. **Stale build error** referencing `chatScrollRef` on line 273 of `src/routes/index.tsx` — that variable does **not** exist anywhere in the codebase (verified with ripgrep). It's a leftover from the previous edit's transient state and will clear on the next build. No code change needed for it specifically — just rebuilding.
+### Bug 1 — Speech recognition is locked to your profile language, not what you actually speak
+`useSpeechRecognition(lang)` is initialized once from `profile.language` + `profile.country`. If your profile says **Morocco** the recognizer is hard-set to **`ar-MA`**, so even if you speak English or French, the browser transcribes it as Arabic gibberish — and naturally the AI replies in Arabic. You think "the bot ignores my language", but it never actually heard your real language.
 
-2. **Real issue**: The bot always replies in Moroccan Darija from a hardcoded bank (`FOLLOW_UP_QUESTIONS_AR`), regardless of what language the user spoke. The user wants the bot to **mirror the language they used** — talk back in English when they speak English, French when they speak French, Hindi when they speak Hindi, Arabic when they speak Darija/Arabic.
+### Bug 2 — Text-to-speech always picks an Arabic voice
+In `src/hooks/useSpeech.tsx`, the `speak()` function calls `pickArabicVoice()` for **every** reply, regardless of `lang`. So when the bot replies in English/French/Hindi, your browser still speaks it with an Arabic voice → it sounds broken or doesn't play at all on some systems.
 
-## Approach
+### Bug 3 — Browser autoplay blocks the first greeting audio
+`speechSynthesis.speak()` fired 400ms after page load is silently blocked by Chrome until the user interacts. No fallback or visible "tap to enable sound" cue.
 
-The recognizer already runs in a fixed locale (`ar-MA`, `en-US`, `fr-FR`, `hi-IN`) determined from the user's profile via `getRecognitionLang(language, country)`. So the spoken locale is **already known per turn**. We use that as the source of truth for which language to reply in.
+---
 
-### 1. Multilingual follow-up question banks (`src/routes/index.tsx`)
+# The fix
 
-Replace the single `FOLLOW_UP_QUESTIONS_AR` array with a map keyed by `RecognitionLang`:
+## 1. Make speech recognition multilingual (auto-detect on each turn)
 
-```ts
-const FOLLOW_UPS: Record<RecognitionLang, string[]> = {
-  "ar-MA": [ /* current Darija questions */ ],
-  "en-US": [
-    "Nice! What kinds of things can you make or fix with your hands?",
-    "How long have you been doing this kind of work?",
-    "Do you work alone or with other people?",
-    "What's the hardest part of your job?",
-    "Walk me through your last working day — how did it go?",
-    "Do you use any specific tools or machines?",
-    "What do you enjoy most about what you do?",
-  ],
-  "fr-FR": [
-    "Super ! Quelles sont les choses que tu sais faire ou réparer de tes mains ?",
-    "Depuis combien de temps tu fais ce travail ?",
-    "Tu travailles seul ou avec d'autres personnes ?",
-    "Qu'est-ce qui est le plus difficile dans ton travail ?",
-    "Raconte-moi ta dernière journée de travail — comment ça s'est passé ?",
-    "Tu utilises des outils ou des machines particulières ?",
-    "Qu'est-ce que tu aimes le plus dans ton travail ?",
-  ],
-  "hi-IN": [
-    "बढ़िया! आप अपने हाथों से क्या-क्या बना या ठीक कर सकते हैं?",
-    "आप यह काम कब से कर रहे हैं?",
-    "आप अकेले काम करते हैं या दूसरों के साथ?",
-    "इस काम में सबसे मुश्किल बात क्या है?",
-    "अपने पिछले काम के दिन के बारे में बताइए — कैसा रहा?",
-    "क्या आप कोई खास उपकरण या मशीन इस्तेमाल करते हैं?",
-    "अपने काम में आपको सबसे ज़्यादा क्या पसंद है?",
-  ],
-};
-```
+The Web Speech API can't truly auto-detect, but we can make it adaptive:
+- Add a small **language picker chip row** above the mic (Darija / English / French / Hindi) — one tap, persists locally.
+- The chip defaults to the profile's language but the user can switch on the fly *per turn*.
+- Each tap updates the recognizer's `lang` immediately so the next "hold to record" uses the right STT locale.
 
-Also localize the **greeting** the same way:
+This is the most reliable way given browser limits: the user picks the language they're about to speak, then the recognizer hears them correctly, then the AI reply matches.
 
-```ts
-const GREETINGS: Record<RecognitionLang, string> = {
-  "ar-MA": "أهلا 👋 أنا Sawt-Net. عاود لي على الخدمة اللي كتدير كل نهار…",
-  "en-US": "Hi 👋 I'm Sawt-Net. Tell me about the work you do every day, and I'll help you find real job opportunities.",
-  "fr-FR": "Salut 👋 Je suis Sawt-Net. Raconte-moi le travail que tu fais chaque jour, et je vais t'aider à trouver de vraies opportunités.",
-  "hi-IN": "नमस्ते 👋 मैं Sawt-Net हूँ। मुझे बताइए आप रोज़ क्या काम करते हैं — मैं आपके लिए असली नौकरी के मौके ढूंढूंगा।",
-};
-```
+## 2. Fix the TTS voice picker so it matches the reply language
 
-Initial greeting bubble + initial TTS call use `GREETINGS[lang]` and `lang` as the spoken locale instead of hardcoded `GREETING_AR` / `"ar-MA"`.
+Rewrite `pickArabicVoice` → `pickVoiceForLang(lang)`:
+- For `ar-MA`: prefer `ar-MA`, then any `ar-*`.
+- For `en-US`: prefer `en-US`, then any `en-*`.
+- For `fr-FR`: prefer `fr-FR`, then any `fr-*`.
+- For `hi-IN`: prefer `hi-IN`, then any `hi-*`.
+- Always set `utter.lang` correctly and only set `utter.voice` when a real match exists (otherwise the OS picks a sane default).
 
-### 2. Per-turn language selection in `stopAndPush`
+This means the bot's English reply is read by an English voice, French by a French voice, etc.
 
-Currently `stopAndPush` always pulls from `FOLLOW_UP_QUESTIONS_AR` and always speaks `"ar-MA"`. Change it to:
+## 3. Make audio reliable & visible
 
-```ts
-const followUps = FOLLOW_UPS[lang];
-const followUp = followUps[questionIndexRef.current % followUps.length];
-questionIndexRef.current += 1;
-// …
-tts.speak(followUp, lang, botBubbleId);
-```
+- On the first user mic press (a real user gesture), unlock `speechSynthesis` by calling a silent `speak("")` — this satisfies the autoplay policy for the rest of the session.
+- If `tts.muted` is true when a reply comes in, show a tiny **"🔊 Tap to hear reply"** hint next to that bubble so the user knows audio is available.
+- Add an `onerror` toast so failures aren't invisible.
 
-That single change makes every reply match the recognizer locale, which already reflects what the user is speaking.
+## 4. Make the chat-followup edge function strictly mirror the user's last language
 
-### 3. Update small helper copy
+Tighten the system prompt: *"Your reply MUST be in the exact same language and script as the user's most recent message. Never switch languages mid-conversation unless the user does."* Plus require `speech_lang` to be derived from the **latest** user message only, not the conversation average.
 
-- "Speaking…" indicator stays in English (it's a UI label, not part of the conversation) — no change.
-- The `dir="rtl"` on bot bubbles should only apply when the bot's text is Arabic. Update to `dir={lang === "ar-MA" ? "rtl" : "ltr"}` (or `"auto"`) so English/French/Hindi replies render left-to-right correctly.
+## 5. (Bonus) Remember the per-turn language across the conversation
+Store the picked language on each user bubble's `speechLang` and pass that as a hint into `chat-followup` so it doesn't have to re-detect from raw text alone.
 
-### 4. Stale build error
+---
 
-No direct fix required — the missing `chatScrollRef` reference doesn't exist in source. The error will disappear on the next successful compile triggered by the edits above.
+# Files I'll touch
 
-## Out of scope (could be a follow-up)
+| File | Change |
+|---|---|
+| `src/hooks/useSpeech.tsx` | Replace Arabic-only voice picker with a multilingual one; add silent-unlock helper. |
+| `src/routes/index.tsx` | Add language chip row above the mic; pass picked language into STT + the edge function; show "tap to hear" hint when muted; trigger TTS unlock on first mic press. |
+| `supabase/functions/chat-followup/index.ts` | Strengthen system prompt to mirror the user's latest language exactly; accept an optional `user_lang` hint from the client. |
 
-- True per-message language **detection** (e.g. user mid-conversation switches from English to French). For now we trust the profile-derived locale, which is consistent with how the recognizer is already configured. If the user wants dynamic switching, that would need either a small AI classifier call or letting the user pick a language toggle in the header.
-- Translating the analysis results page — it currently uses English labels with localized job titles from the AI. Out of scope for this turn.
+No DB changes, no new dependencies.
 
-## Files touched
+---
 
-- `src/routes/index.tsx` — add `GREETINGS` + `FOLLOW_UPS` maps, switch `stopAndPush` and the greeting `useEffect` to use them, fix bubble `dir` attribute.
+# What you'll experience after the fix
 
-No new files, no backend changes, no schema changes.
+- Tap **EN** → speak English → bot replies in English, read aloud by an English voice.
+- Tap **FR** → speak French → bot replies in French, read aloud by a French voice.
+- Tap **AR** → speak Darija → bot replies in Darija (Arabic script), read aloud by an Arabic voice.
+- Audio plays automatically after your first interaction; if you've muted it, you see a clear hint.

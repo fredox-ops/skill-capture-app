@@ -10,6 +10,7 @@ import {
   Square,
   Volume2,
   VolumeX,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileShell } from "@/components/MobileShell";
@@ -80,7 +81,32 @@ function ChatScreen() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [replying, setReplying] = useState(false);
 
-  const lang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
+  const profileLang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
+
+  // Per-turn language picker — defaults to the profile language but the user
+  // can switch on the fly so the recognizer hears them in the language they
+  // are actually about to speak. Persisted in localStorage between sessions.
+  const [lang, setLang] = useState<RecognitionLang>(() => {
+    if (typeof window === "undefined") return profileLang;
+    const saved = localStorage.getItem("sawtnet-active-lang") as RecognitionLang | null;
+    if (saved && (saved === "ar-MA" || saved === "en-US" || saved === "fr-FR" || saved === "hi-IN")) {
+      return saved;
+    }
+    return profileLang;
+  });
+
+  // If the user changes their profile language while no message has been sent
+  // yet, follow the profile (handled in the greeting effect below). Otherwise
+  // their per-turn pick wins.
+  const pickLang = (next: RecognitionLang) => {
+    setLang(next);
+    try {
+      localStorage.setItem("sawtnet-active-lang", next);
+    } catch {
+      // ignore
+    }
+  };
+
   const { supported, listening, transcript, interim, error, start, stop, reset } =
     useSpeechRecognition(lang);
 
@@ -157,6 +183,7 @@ function ChatScreen() {
         body: {
           messages: conversation.map(({ from, text }) => ({ from, text })),
           country: profile?.country ?? "Morocco",
+          user_lang: lang,
         },
       });
       if (fnErr) throw fnErr;
@@ -203,6 +230,8 @@ function ChatScreen() {
   const handleHoldStart = (e: React.PointerEvent | React.KeyboardEvent) => {
     if (!supported || listening || analyzing || replying) return;
     if ("preventDefault" in e) e.preventDefault();
+    // Unlock TTS on this real user gesture so later replies can speak automatically.
+    tts.unlock();
     start();
   };
   const handleHoldEnd = () => {
@@ -369,6 +398,22 @@ function ChatScreen() {
                         <span>Speaking…</span>
                       </span>
                     )}
+                    {!isUser && !isSpeaking && tts.supported && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          tts.unlock();
+                          if (tts.muted) tts.toggleMute();
+                          // Defer slightly so the unmute state propagates before speak() reads it.
+                          setTimeout(() => tts.speak(b.text, b.speechLang ?? lang, b.id), 50);
+                        }}
+                        className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-primary/80 hover:text-primary"
+                        aria-label="Play reply audio"
+                      >
+                        <Play className="h-3 w-3" />
+                        <span>{tts.muted ? "Unmute & play" : "Play audio"}</span>
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               );
@@ -408,6 +453,30 @@ function ChatScreen() {
         </button>
 
         <div className="mx-auto w-full max-w-3xl px-5 pb-6 pt-6 sm:px-8">
+          {/* Per-turn language picker — tap before recording so the recognizer
+              hears the language you're actually about to speak. */}
+          <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+            {(Object.keys(RECOGNITION_LANG_LABELS) as RecognitionLang[]).map((code) => {
+              const active = lang === code;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => pickLang(code)}
+                  disabled={listening || analyzing}
+                  className={`rounded-full px-3 py-1 text-[11px] font-medium transition-all ${
+                    active
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted text-muted-foreground hover:bg-muted/70"
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                  aria-pressed={active}
+                  aria-label={`Speak in ${RECOGNITION_LANG_LABELS[code]}`}
+                >
+                  {RECOGNITION_LANG_LABELS[code]}
+                </button>
+              );
+            })}
+          </div>
           <AnimatePresence mode="wait">
             <motion.div
               key="mic"
@@ -461,11 +530,6 @@ function ChatScreen() {
                       ? "Hold to start the conversation"
                       : "Hold to keep talking"}
               </p>
-              {supported && (
-                <p className="text-[11px] text-muted-foreground/70">
-                  Language: {RECOGNITION_LANG_LABELS[lang]}
-                </p>
-              )}
               {analyzing && (
                 <p className="text-[11px] font-medium text-primary">{stepLabel[step]}</p>
               )}

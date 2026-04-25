@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Wrapper around the browser SpeechSynthesis API.
- * - Picks the best available Arabic voice (prefers ar-MA, then any ar-*).
+ * - Picks the best available voice for the requested language (any of ar/en/fr/hi).
  * - Tracks which bubble id is currently being spoken so the UI can render
  *   an "audio wave" indicator next to that bubble.
  * - Persists a global mute preference in localStorage.
+ * - Exposes `unlock()` so the first user gesture can satisfy the browser
+ *   autoplay policy and let later replies speak automatically.
  */
 export function useSpeech() {
   const [supported, setSupported] = useState(false);
@@ -15,6 +17,7 @@ export function useSpeech() {
   });
   const [speakingId, setSpeakingId] = useState<number | null>(null);
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
+  const unlockedRef = useRef(false);
 
   // Keep a fresh list of voices. getVoices() can return [] until voiceschanged fires.
   useEffect(() => {
@@ -57,20 +60,39 @@ export function useSpeech() {
     setSpeakingId(null);
   }, []);
 
-  const pickArabicVoice = useCallback((preferred: string): SpeechSynthesisVoice | undefined => {
+  // Pick the closest available voice for the requested BCP-47 language tag.
+  // Falls back to any voice in the same primary subtag (e.g. "en-*" for "en-US").
+  const pickVoiceForLang = useCallback((preferred: string): SpeechSynthesisVoice | undefined => {
     const voices = voicesRef.current;
     if (!voices.length) return undefined;
+    const lower = preferred.toLowerCase();
+    const primary = lower.split("-")[0];
     return (
-      voices.find((v) => v.lang === preferred) ||
-      voices.find((v) => v.lang?.toLowerCase().startsWith("ar-ma")) ||
-      voices.find((v) => v.lang?.toLowerCase().startsWith("ar")) ||
+      voices.find((v) => v.lang?.toLowerCase() === lower) ||
+      voices.find((v) => v.lang?.toLowerCase().startsWith(`${primary}-`)) ||
+      voices.find((v) => v.lang?.toLowerCase().startsWith(primary)) ||
       undefined
     );
+  }, []);
+
+  // Call from a real user gesture (e.g. mic press) to satisfy autoplay policies.
+  const unlock = useCallback(() => {
+    if (unlockedRef.current) return;
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    try {
+      const u = new SpeechSynthesisUtterance(" ");
+      u.volume = 0;
+      window.speechSynthesis.speak(u);
+      unlockedRef.current = true;
+    } catch {
+      // ignore
+    }
   }, []);
 
   const speak = useCallback(
     (text: string, lang: string, id: number) => {
       if (!supported || muted || typeof window === "undefined") return;
+      if (!text?.trim()) return;
       window.speechSynthesis.cancel();
 
       const utter = new SpeechSynthesisUtterance(text);
@@ -78,7 +100,7 @@ export function useSpeech() {
       utter.rate = 0.95;
       utter.pitch = 1;
 
-      const voice = pickArabicVoice(lang);
+      const voice = pickVoiceForLang(lang);
       if (voice) utter.voice = voice;
 
       utter.onstart = () => setSpeakingId(id);
@@ -87,8 +109,8 @@ export function useSpeech() {
 
       window.speechSynthesis.speak(utter);
     },
-    [muted, pickArabicVoice, supported],
+    [muted, pickVoiceForLang, supported],
   );
 
-  return { supported, muted, toggleMute, speak, cancel, speakingId };
+  return { supported, muted, toggleMute, speak, cancel, unlock, speakingId };
 }
