@@ -255,7 +255,7 @@ const fr: ResultsCopy = {
     `Au ${country}, la part des 20–39 ans avec un niveau secondaire supérieur passera de ${a}% (2025) à ${b}% (2035).`,
   honestLimitsTitle: "Ce que nous ne savons pas",
   honestLimitsBody:
-    "Les salaires sont des médianes nationales par grand groupe ISCO, pas des offres locales. Les scores d'automatisation viennent de Frey-Osborne (marché US) et peuvent sous-estimer la résilience manuelle dans les contextes LMIC. À utiliser comme repère, pas comme garantie.",
+    "Avertissement : Les salaires sont des médianes nationales. Les scores d'automatisation sont basés sur Frey-Osborne et peuvent différer dans les contextes informels des pays à revenu faible et intermédiaire.",
 };
 
 const hi: ResultsCopy = {
