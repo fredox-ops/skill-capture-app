@@ -77,15 +77,15 @@ function ChatScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [step, setStep] = useState<AnalyzeStep>("idle");
   const analyzing = step !== "idle";
-  const questionIndexRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [replying, setReplying] = useState(false);
 
   const lang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
   const { supported, listening, transcript, interim, error, start, stop, reset } =
     useSpeechRecognition(lang);
 
   const [bubbles, setBubbles] = useState<Bubble[]>(() => [
-    { id: 1, from: "bot", text: GREETINGS[lang] },
+    { id: 1, from: "bot", text: GREETINGS[lang], speechLang: lang, direction: lang === "ar-MA" ? "rtl" : "ltr" },
   ]);
 
   // Keep the initial greeting in sync if the user changes language in Settings
@@ -93,7 +93,7 @@ function ChatScreen() {
   useEffect(() => {
     setBubbles((b) => {
       if (b.length === 1 && b[0].from === "bot") {
-        return [{ id: 1, from: "bot", text: GREETINGS[lang] }];
+        return [{ id: 1, from: "bot", text: GREETINGS[lang], speechLang: lang, direction: lang === "ar-MA" ? "rtl" : "ltr" }];
       }
       return b;
     });
@@ -138,32 +138,70 @@ function ChatScreen() {
   const userMessageCount = bubbles.filter((b) => b.from === "user").length;
   const canAnalyze = userMessageCount >= MIN_USER_MESSAGES_TO_ANALYZE && !analyzing;
 
-  const stopAndPush = () => {
+  const stopAndPush = async () => {
     stop();
     const text = transcript.trim();
     if (!text) {
       reset();
       return;
     }
-    const userBubbleId = Date.now();
-    setBubbles((b) => [...b, { id: userBubbleId, from: "user", text }]);
 
-    // Pick the next mock follow-up question in the user's language.
-    const followUps = FOLLOW_UPS[lang];
-    const idx = questionIndexRef.current % followUps.length;
-    questionIndexRef.current += 1;
-    const followUp = followUps[idx];
-    const botBubbleId = userBubbleId + 1;
+    const userBubble: Bubble = { id: Date.now(), from: "user", text, speechLang: lang };
+    const conversation = [...bubbles, userBubble];
+    setBubbles(conversation);
+    reset();
+    setReplying(true);
 
-    window.setTimeout(() => {
-      setBubbles((b) => [...b, { id: botBubbleId, from: "bot", text: followUp }]);
-      tts.speak(followUp, lang, botBubbleId);
-    }, 650);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke("chat-followup", {
+        body: {
+          messages: conversation.map(({ from, text }) => ({ from, text })),
+          country: profile?.country ?? "Morocco",
+        },
+      });
+      if (fnErr) throw fnErr;
+      if (data?.error) throw new Error(data.error);
+
+      const speechLang: RecognitionLang =
+        data?.speech_lang === "ar-MA" ||
+        data?.speech_lang === "en-US" ||
+        data?.speech_lang === "fr-FR" ||
+        data?.speech_lang === "hi-IN"
+          ? data.speech_lang
+          : lang;
+      const followUp = typeof data?.reply === "string" && data.reply.trim()
+        ? data.reply.trim()
+        : fallbackFollowUps[speechLang];
+      const botBubble: Bubble = {
+        id: userBubble.id + 1,
+        from: "bot",
+        text: followUp,
+        speechLang,
+        direction: data?.direction === "rtl" ? "rtl" : "ltr",
+      };
+
+      setBubbles((b) => [...b, botBubble]);
+      tts.speak(followUp, speechLang, botBubble.id);
+    } catch (err) {
+      console.error(err);
+      const followUp = fallbackFollowUps[lang];
+      const botBubble: Bubble = {
+        id: userBubble.id + 1,
+        from: "bot",
+        text: followUp,
+        speechLang: lang,
+        direction: lang === "ar-MA" ? "rtl" : "ltr",
+      };
+      setBubbles((b) => [...b, botBubble]);
+      tts.speak(followUp, lang, botBubble.id);
+    } finally {
+      setReplying(false);
+    }
   };
 
   // ---- Press-and-hold mic handlers ----------------------------------------
   const handleHoldStart = (e: React.PointerEvent | React.KeyboardEvent) => {
-    if (!supported || listening || analyzing) return;
+    if (!supported || listening || analyzing || replying) return;
     if ("preventDefault" in e) e.preventDefault();
     start();
   };
@@ -305,7 +343,7 @@ function ChatScreen() {
                   className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    dir={isUser ? "auto" : lang === "ar-MA" ? "rtl" : "ltr"}
+                    dir={isUser ? "auto" : b.direction ?? "ltr"}
                     className={`relative max-w-[80%] rounded-2xl px-4 py-2.5 text-[15px] leading-snug shadow-sm ${
                       isUser
                         ? "rounded-br-md bg-bubble-user text-bubble-user-foreground"
@@ -405,7 +443,9 @@ function ChatScreen() {
                   ? "Voice input not supported. Try Chrome."
                   : listening
                     ? "Listening… release to send"
-                    : userMessageCount === 0
+                    : replying
+                      ? "Sawt-Net is thinking…"
+                      : userMessageCount === 0
                       ? "Hold to start the conversation"
                       : "Hold to keep talking"}
               </p>
