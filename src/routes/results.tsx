@@ -361,19 +361,38 @@ function ResultsContent({
           title={copy.riskTitle}
           subtitle={copy.riskSubtitle}
         >
-          <div className="mb-2 flex items-end justify-between">
-            <span className="text-4xl font-bold text-foreground">{analysis.ai_score}%</span>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold text-success">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <span className="text-5xl font-extrabold tracking-tight text-foreground">
+                {analysis.ai_score}
+              </span>
+              <span className="ml-1 text-xl font-bold text-muted-foreground">/100</span>
+            </div>
+            <div className="flex flex-col items-end gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-success">
                 <Database className="h-2.5 w-2.5" />
                 {copy.realDataBadge}
               </span>
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${riskMeta.className}`}>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${riskMeta.className}`}
+                aria-label={riskLabel}
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{
+                    backgroundColor:
+                      riskMeta.key === "Low"
+                        ? "var(--success)"
+                        : riskMeta.key === "Medium"
+                          ? "var(--warning)"
+                          : "var(--destructive)",
+                  }}
+                />
                 {riskLabel}
               </span>
             </div>
           </div>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${analysis.ai_score}%` }}
@@ -382,7 +401,7 @@ function ResultsContent({
               style={{ background: riskMeta.gradient }}
             />
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">{copy.riskFootnote}</p>
+          <p className="mt-3 text-xs text-muted-foreground">{copy.riskFootnote}</p>
         </Section>
 
         <Section
@@ -392,33 +411,47 @@ function ResultsContent({
         >
           <div className="space-y-3">
             {analysis.jobs.map((j, idx) => (
-              <div
+              <motion.div
                 key={`${j.job_title}-${idx}`}
-                className="rounded-xl border border-border bg-background p-3"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.06, duration: 0.3 }}
+                className="rounded-2xl bg-card p-4 shadow-[var(--shadow-floating)] transition hover:shadow-[var(--shadow-app)]"
               >
-                <div className="mb-1.5 flex items-start justify-between gap-2">
-                  <h3 className="text-[15px] font-semibold leading-tight">{j.job_title}</h3>
-                  <span className="shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-xs font-bold text-success">
-                    {j.match_percent}%
-                  </span>
-                </div>
-                <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    <Coins className="h-3.5 w-3.5" />
-                    {j.local_wage} {copy.perMonth}
-                  </span>
-                  {j.wage_source && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px]">
-                      <Database className="h-2.5 w-2.5" />
-                      {copy.sourceLabel}: {j.wage_source}
-                      {j.wage_year ? ` (${j.wage_year})` : ""}
-                    </span>
-                  )}
+                <div className="mb-3 flex items-start gap-3">
+                  {/* Logo placeholder — soft teal tile with briefcase glyph */}
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[color:var(--primary-soft)] text-[color:var(--primary-deep)]">
+                    <Briefcase className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-[15px] font-bold leading-tight tracking-tight text-foreground">
+                        {j.job_title}
+                      </h3>
+                      <span className="shrink-0 rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-bold text-success">
+                        {j.match_percent}%
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 font-semibold text-foreground/80">
+                        <Coins className="h-3.5 w-3.5" />
+                        {j.local_wage}
+                        <span className="font-normal text-muted-foreground">{copy.perMonth}</span>
+                      </span>
+                      {j.wage_source && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px]">
+                          <Database className="h-2.5 w-2.5" />
+                          {copy.sourceLabel}: {j.wage_source}
+                          {j.wage_year ? ` (${j.wage_year})` : ""}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {j.listings && j.listings.length > 0 && (
                   <div className="mb-3 space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                       {copy.liveListings}
                     </p>
                     {j.listings.map((l, i) => (
@@ -427,9 +460,9 @@ function ResultsContent({
                         href={l.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block rounded-lg border border-border bg-muted/40 p-2.5 transition hover:bg-muted"
+                        className="block rounded-xl bg-muted/60 p-3 transition hover:bg-accent"
                       >
-                        <div className="line-clamp-1 text-xs font-semibold text-foreground">
+                        <div className="line-clamp-1 text-xs font-bold text-foreground">
                           {l.title}
                         </div>
                         {l.snippet && (
@@ -437,7 +470,7 @@ function ResultsContent({
                             {l.snippet}
                           </div>
                         )}
-                        <div className="mt-1 line-clamp-1 text-[10px] text-primary">
+                        <div className="mt-1 line-clamp-1 text-[10px] font-semibold text-primary">
                           {safeHostname(l.url)}
                         </div>
                       </a>
@@ -445,16 +478,16 @@ function ResultsContent({
                   </div>
                 )}
 
-                {/* Smart Apply — always present, regardless of listings */}
+                {/* Smart Apply — primary teal, full width, rounded-full */}
                 <button
                   type="button"
                   onClick={() => setApplyJob(j)}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground active:scale-[0.98]"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-primary to-[var(--primary-glow)] py-2.5 text-sm font-bold tracking-wide text-primary-foreground shadow-[var(--shadow-card)] transition active:scale-[0.98]"
                 >
                   <Sparkles className="h-4 w-4" />
                   {copy.smartApply}
                 </button>
-              </div>
+              </motion.div>
             ))}
           </div>
         </Section>
