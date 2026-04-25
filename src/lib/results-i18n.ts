@@ -131,7 +131,7 @@ const en: ResultsCopy = {
     `In ${country}, the share of 20–39 year-olds with upper-secondary education is projected to rise from ${a}% (2025) to ${b}% (2035).`,
   honestLimitsTitle: "What we don't know",
   honestLimitsBody:
-    "Wages are national medians by ISCO major group, not local offers. Automation scores are from Frey-Osborne (US labour market) and may understate hands-on resilience in LMIC contexts. Use as guidance, not a guarantee.",
+    "Disclaimer: Wages are national medians. Automation scores are based on Frey-Osborne and may differ in informal LMIC contexts.",
 };
 
 const ar: ResultsCopy = {
