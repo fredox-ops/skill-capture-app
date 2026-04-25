@@ -257,9 +257,38 @@ function ResultsContent({ analysis }: { analysis: Analysis }) {
                 <Coins className="h-3.5 w-3.5" />
                 {j.local_wage} / month
               </div>
-              <button className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground active:scale-[0.98]">
-                Apply
-              </button>
+              {j.listings && j.listings.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Live listings
+                  </p>
+                  {j.listings.map((l, i) => (
+                    <a
+                      key={`${l.url}-${i}`}
+                      href={l.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-lg border border-border bg-muted/40 p-2.5 transition hover:bg-muted"
+                    >
+                      <div className="line-clamp-1 text-xs font-semibold text-foreground">
+                        {l.title}
+                      </div>
+                      {l.snippet && (
+                        <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                          {l.snippet}
+                        </div>
+                      )}
+                      <div className="mt-1 line-clamp-1 text-[10px] text-primary">
+                        {new URL(l.url).hostname.replace(/^www\./, "")}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <button className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground active:scale-[0.98]">
+                  Apply
+                </button>
+              )}
             </div>
           ))}
         </div>
