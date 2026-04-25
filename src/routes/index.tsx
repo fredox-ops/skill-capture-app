@@ -164,36 +164,38 @@ function ChatScreen() {
       </header>
 
       {/* Chat area */}
-      <div className="flex-1 overflow-y-auto bg-chat-bg px-4 py-5">
-        <div className="space-y-3">
-          {bubbles.map((b) => (
-            <motion.div
-              key={b.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`flex ${b.from === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-[15px] leading-snug shadow-sm ${
-                  b.from === "user"
-                    ? "rounded-br-md bg-bubble-user text-bubble-user-foreground"
-                    : "rounded-bl-md bg-bubble-bot text-bubble-bot-foreground"
-                }`}
+      <div className="flex-1 overflow-y-auto bg-chat-bg">
+        <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
+          <div className="space-y-3">
+            {bubbles.map((b) => (
+              <motion.div
+                key={b.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`flex ${b.from === "user" ? "justify-end" : "justify-start"}`}
               >
-                {b.text}
-              </div>
-            </motion.div>
-          ))}
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-[15px] leading-snug shadow-sm ${
+                    b.from === "user"
+                      ? "rounded-br-md bg-bubble-user text-bubble-user-foreground"
+                      : "rounded-bl-md bg-bubble-bot text-bubble-bot-foreground"
+                  }`}
+                >
+                  {b.text}
+                </div>
+              </motion.div>
+            ))}
 
-          {listening && (transcript || interim) && (
-            <div className="flex justify-end">
-              <div className="max-w-[80%] rounded-2xl rounded-br-md bg-bubble-user/70 px-4 py-2.5 text-[15px] text-bubble-user-foreground shadow-sm">
-                {transcript}
-                {interim && <span className="italic opacity-80"> {interim}</span>}
-                <span className="ml-1 inline-block h-3 w-0.5 animate-pulse bg-white" />
+            {listening && (transcript || interim) && (
+              <div className="flex justify-end">
+                <div className="max-w-[80%] rounded-2xl rounded-br-md bg-bubble-user/70 px-4 py-2.5 text-[15px] text-bubble-user-foreground shadow-sm">
+                  {transcript}
+                  {interim && <span className="italic opacity-80"> {interim}</span>}
+                  <span className="ml-1 inline-block h-3 w-0.5 animate-pulse bg-white" />
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
