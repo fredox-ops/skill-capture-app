@@ -284,6 +284,37 @@ function ChatScreen() {
     stopAndPush();
   };
 
+  // Brief, friendly two-tone chime via Web Audio so the user gets an audible
+  // cue that the app is working in the background — useful when the screen
+  // animation alone might be missed.
+  const playThinkingChime = () => {
+    if (typeof window === "undefined") return;
+    try {
+      const Ctx = (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext);
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const now = ctx.currentTime;
+      const tone = (freq: number, start: number, dur: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, now + start);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now + start);
+        osc.stop(now + start + dur + 0.05);
+      };
+      tone(660, 0, 0.18);
+      tone(880, 0.16, 0.22);
+      setTimeout(() => ctx.close(), 800);
+    } catch {
+      // ignore — chime is a nice-to-have
+    }
+  };
+
   const startAnalysis = async () => {
     if (!canAnalyze || !user) return;
 
@@ -293,9 +324,6 @@ function ChatScreen() {
       .map((b) => b.text)
       .join(" \n ");
 
-    // Use the language of the most recent bot reply (which mirrors the user's
-    // last spoken language) so the analysis comes back in the same language
-    // the conversation actually happened in.
     const conversationLang: RecognitionLang =
       [...bubbles].reverse().find((b) => b.from === "bot" && b.speechLang)?.speechLang ?? lang;
     const languageLabel: Record<RecognitionLang, string> = {
@@ -305,8 +333,11 @@ function ChatScreen() {
       "hi-IN": "Hindi",
     };
 
+    setMicError(false);
+    setMicSuccess(false);
     setStep("saving-transcript");
     setAnalyzeAttempt(0);
+    playThinkingChime();
     try {
       const { data: session, error: sessionErr } = await supabase
         .from("voice_sessions")
@@ -344,8 +375,10 @@ function ChatScreen() {
           break;
         } catch (err) {
           lastErr = err;
+          // Show the orange "weak network" state during retries so the user
+          // sees something is going on without needing to read.
           if (attempt < MAX_ATTEMPTS) {
-            // Exponential-ish backoff: 1.2s, 2.4s.
+            setMicWarning(true);
             await new Promise((r) => setTimeout(r, 1200 * attempt));
           }
         }
@@ -367,24 +400,24 @@ function ChatScreen() {
         .single();
       if (aErr) throw aErr;
 
+      // Audio + visual success cue before navigating.
       tts.cancel();
-      navigate({ to: "/results", search: { id: analysis.id } });
+      setMicWarning(false);
+      setMicSuccess(true);
+      setTimeout(() => navigate({ to: "/results", search: { id: analysis.id } }), 600);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Analysis failed";
-      toast.error(`${msg} — ضعف في الشبكة. حاول مرة أخرى.`);
+      console.error(err);
+      // Severe failure → red mic + spoken localised "weak network" message.
+      setMicWarning(false);
+      setMicError(true);
+      const wasMuted = tts.muted;
+      if (wasMuted) tts.toggleMute();
+      tts.speak(NETWORK_ERROR_VOICE[lang], lang, -1);
+      if (wasMuted) setTimeout(() => tts.toggleMute(), 3500);
+      setTimeout(() => setMicError(false), 4000);
       setStep("idle");
       setAnalyzeAttempt(0);
     }
-  };
-
-  const stepLabel: Record<AnalyzeStep, string> = {
-    "idle": "",
-    "saving-transcript": "Saving transcript…",
-    "calling-ai":
-      analyzeAttempt > 1
-        ? `جاري تحليل البيانات عبر شبكة ضعيفة… (retry ${analyzeAttempt}/3)`
-        : "جاري تحليل البيانات… Calling AI engine…",
-    "saving-results": "Saving results…",
   };
 
   if (authLoading) {
