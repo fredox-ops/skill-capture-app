@@ -69,6 +69,7 @@ interface Signals {
 
 interface Analysis {
   id: string;
+  share_id: string;
   session_id: string;
   skills: Skill[];
   ai_score: number;
