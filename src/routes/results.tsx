@@ -358,9 +358,15 @@ function ResultsContent({
         >
           <div className="mb-2 flex items-end justify-between">
             <span className="text-4xl font-bold text-foreground">{analysis.ai_score}%</span>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${riskMeta.className}`}>
-              {riskLabel}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold text-success">
+                <Database className="h-2.5 w-2.5" />
+                {copy.realDataBadge}
+              </span>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${riskMeta.className}`}>
+                {riskLabel}
+              </span>
+            </div>
           </div>
           <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
             <motion.div
@@ -391,9 +397,18 @@ function ResultsContent({
                     {j.match_percent}%
                   </span>
                 </div>
-                <div className="mb-3 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Coins className="h-3.5 w-3.5" />
-                  {j.local_wage} {copy.perMonth}
+                <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Coins className="h-3.5 w-3.5" />
+                    {j.local_wage} {copy.perMonth}
+                  </span>
+                  {j.wage_source && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px]">
+                      <Database className="h-2.5 w-2.5" />
+                      {copy.sourceLabel}: {j.wage_source}
+                      {j.wage_year ? ` (${j.wage_year})` : ""}
+                    </span>
+                  )}
                 </div>
 
                 {j.listings && j.listings.length > 0 && (
