@@ -1,60 +1,95 @@
+## Problem
 
-## Goal
-Turn the single-shot mic UI into a back-and-forth Arabic chat with spoken AI replies, and gate the "Analyze My Skills" action behind a separate, intentional button.
+Two issues:
 
----
+1. **Stale build error** referencing `chatScrollRef` on line 273 of `src/routes/index.tsx` — that variable does **not** exist anywhere in the codebase (verified with ripgrep). It's a leftover from the previous edit's transient state and will clear on the next build. No code change needed for it specifically — just rebuilding.
 
-## 1. Multi-turn conversational flow (mocked, no extra AI calls)
+2. **Real issue**: The bot always replies in Moroccan Darija from a hardcoded bank (`FOLLOW_UP_QUESTIONS_AR`), regardless of what language the user spoke. The user wants the bot to **mirror the language they used** — talk back in English when they speak English, French when they speak French, Hindi when they speak Hindi, Arabic when they speak Darija/Arabic.
 
-**Where:** `src/routes/index.tsx`
+## Approach
 
-- Replace the current "got it, ready to analyze?" auto-reply with a rotating bank of empathetic Arabic (Darija) follow-up questions, e.g.:
-  - "مزيان! شنو هما الحوايج اللي كتعرف تصاوب بيدك؟"
-  - "شحال هادي وأنت كدير هاد الخدمة؟"
-  - "واش خدمتي بوحدك ولا مع ناس أخرين؟"
-  - "شنو هي أصعب حاجة فهاد الخدمة بالنسبة ليك؟"
-  - "عاود لي على آخر يوم خدمت فيه — كيفاش دازت النهار؟"
-- Keep an in-memory `questionIndex` so each user message gets the next question (cycling). No real AI / network — pure mock for now.
-- After each user voice message: push the user bubble, then a 500–800 ms delayed bot bubble with the next Arabic follow-up, and feed that bubble into TTS (#2).
-- Initial greeting bubble also switches to Darija ("أهلا 👋 أنا Sawt-Net. عاود لي على الخدمة اللي كتدير كل نهار.").
+The recognizer already runs in a fixed locale (`ar-MA`, `en-US`, `fr-FR`, `hi-IN`) determined from the user's profile via `getRecognitionLang(language, country)`. So the spoken locale is **already known per turn**. We use that as the source of truth for which language to reply in.
 
-## 2. Text-to-Speech for bot bubbles
+### 1. Multilingual follow-up question banks (`src/routes/index.tsx`)
 
-**New file:** `src/hooks/useSpeech.tsx`
-- Thin wrapper around `window.speechSynthesis`.
-- Exports `speak(text, lang)`, `cancel()`, and reactive `speakingId` state.
-- Picks an Arabic voice: prefer `ar-MA`, fall back to any `ar-*` voice from `getVoices()`, then default. Handles the async voice-load (`onvoiceschanged`).
-- Each call accepts an `id` so the UI can highlight which bubble is currently speaking.
+Replace the single `FOLLOW_UP_QUESTIONS_AR` array with a map keyed by `RecognitionLang`:
 
-**Wiring in `src/routes/index.tsx`:**
-- When a new bot bubble is appended, call `speak(bubble.text, "ar-MA", bubble.id)`.
-- On unmount or new user input → `cancel()` so we don't stack utterances.
+```ts
+const FOLLOW_UPS: Record<RecognitionLang, string[]> = {
+  "ar-MA": [ /* current Darija questions */ ],
+  "en-US": [
+    "Nice! What kinds of things can you make or fix with your hands?",
+    "How long have you been doing this kind of work?",
+    "Do you work alone or with other people?",
+    "What's the hardest part of your job?",
+    "Walk me through your last working day — how did it go?",
+    "Do you use any specific tools or machines?",
+    "What do you enjoy most about what you do?",
+  ],
+  "fr-FR": [
+    "Super ! Quelles sont les choses que tu sais faire ou réparer de tes mains ?",
+    "Depuis combien de temps tu fais ce travail ?",
+    "Tu travailles seul ou avec d'autres personnes ?",
+    "Qu'est-ce qui est le plus difficile dans ton travail ?",
+    "Raconte-moi ta dernière journée de travail — comment ça s'est passé ?",
+    "Tu utilises des outils ou des machines particulières ?",
+    "Qu'est-ce que tu aimes le plus dans ton travail ?",
+  ],
+  "hi-IN": [
+    "बढ़िया! आप अपने हाथों से क्या-क्या बना या ठीक कर सकते हैं?",
+    "आप यह काम कब से कर रहे हैं?",
+    "आप अकेले काम करते हैं या दूसरों के साथ?",
+    "इस काम में सबसे मुश्किल बात क्या है?",
+    "अपने पिछले काम के दिन के बारे में बताइए — कैसा रहा?",
+    "क्या आप कोई खास उपकरण या मशीन इस्तेमाल करते हैं?",
+    "अपने काम में आपको सबसे ज़्यादा क्या पसंद है?",
+  ],
+};
+```
 
-**Visual indicator:**
-- When `speakingId === bubble.id`, render an animated 3-bar audio-wave next to the bot bubble (small inline SVG/CSS, three `<span>`s with staggered scaleY animations using existing Tailwind keyframes, no new dependency).
-- Add a tiny mute/unmute toggle in the header (next to History/Settings) so users can silence TTS — store preference in `localStorage`.
+Also localize the **greeting** the same way:
 
-## 3. Separate, gated "Analyze My Skills" button
+```ts
+const GREETINGS: Record<RecognitionLang, string> = {
+  "ar-MA": "أهلا 👋 أنا Sawt-Net. عاود لي على الخدمة اللي كتدير كل نهار…",
+  "en-US": "Hi 👋 I'm Sawt-Net. Tell me about the work you do every day, and I'll help you find real job opportunities.",
+  "fr-FR": "Salut 👋 Je suis Sawt-Net. Raconte-moi le travail que tu fais chaque jour, et je vais t'aider à trouver de vraies opportunités.",
+  "hi-IN": "नमस्ते 👋 मैं Sawt-Net हूँ। मुझे बताइए आप रोज़ क्या काम करते हैं — मैं आपके लिए असली नौकरी के मौके ढूंढूंगा।",
+};
+```
 
-**Where:** `src/routes/index.tsx`
+Initial greeting bubble + initial TTS call use `GREETINGS[lang]` and `lang` as the spoken locale instead of hardcoded `GREETING_AR` / `"ar-MA"`.
 
-- Remove the big in-flow "Analyze My Skills" button from the bottom action area. The bottom area becomes mic-only, always.
-- Add a sticky **Floating Action Button (FAB)** anchored bottom-right above the mic area (`fixed bottom-28 right-5`, respects mobile shell).
-  - Icon: `Sparkles` + label "حلّل مهاراتي".
-  - Disabled state (greyed, `opacity-40`, no shadow) until the user has sent **≥ 2** messages (`bubbles.filter(b => b.from === "user").length >= 2`).
-  - Active state: gradient/primary background, gentle pulse to draw attention.
-- On click: run the existing `startAnalysis()` logic, but concatenate **all** user messages (not just the last) into the transcript sent to the edge function — gives a richer multi-turn signal.
-- While analyzing: FAB shows spinner + step label as a small toast / inline caption under the FAB.
+### 2. Per-turn language selection in `stopAndPush`
 
-**Header:** leave History + Settings as-is. Add the TTS mute toggle here. The FAB stays bottom-right per spec (cleaner on mobile than a header button).
+Currently `stopAndPush` always pulls from `FOLLOW_UP_QUESTIONS_AR` and always speaks `"ar-MA"`. Change it to:
 
----
+```ts
+const followUps = FOLLOW_UPS[lang];
+const followUp = followUps[questionIndexRef.current % followUps.length];
+questionIndexRef.current += 1;
+// …
+tts.speak(followUp, lang, botBubbleId);
+```
+
+That single change makes every reply match the recognizer locale, which already reflects what the user is speaking.
+
+### 3. Update small helper copy
+
+- "Speaking…" indicator stays in English (it's a UI label, not part of the conversation) — no change.
+- The `dir="rtl"` on bot bubbles should only apply when the bot's text is Arabic. Update to `dir={lang === "ar-MA" ? "rtl" : "ltr"}` (or `"auto"`) so English/French/Hindi replies render left-to-right correctly.
+
+### 4. Stale build error
+
+No direct fix required — the missing `chatScrollRef` reference doesn't exist in source. The error will disappear on the next successful compile triggered by the edits above.
+
+## Out of scope (could be a follow-up)
+
+- True per-message language **detection** (e.g. user mid-conversation switches from English to French). For now we trust the profile-derived locale, which is consistent with how the recognizer is already configured. If the user wants dynamic switching, that would need either a small AI classifier call or letting the user pick a language toggle in the header.
+- Translating the analysis results page — it currently uses English labels with localized job titles from the AI. Out of scope for this turn.
 
 ## Files touched
-- `src/routes/index.tsx` — multi-turn flow, FAB, remove inline analyze button, wire TTS, mute toggle, multi-message transcript.
-- `src/hooks/useSpeech.tsx` — **new**, speechSynthesis wrapper with Arabic voice selection + speakingId.
-- (No backend, schema, or edge-function changes.)
 
-## Out of scope
-- Real AI-driven follow-ups (current task says "mock conversational flow"). Easy to upgrade later by pointing the follow-up generator at a new edge function.
-- Persisting multi-turn conversations to `voice_sessions` (still saves the concatenated transcript on analyze, same as today).
+- `src/routes/index.tsx` — add `GREETINGS` + `FOLLOW_UPS` maps, switch `stopAndPush` and the greeting `useEffect` to use them, fix bubble `dir` attribute.
+
+No new files, no backend changes, no schema changes.
