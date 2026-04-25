@@ -595,13 +595,15 @@ function Section({
         hidden: { opacity: 0, y: 12 },
         show: { opacity: 1, y: 0 },
       }}
-      className="rounded-2xl bg-card p-4 shadow-[var(--shadow-card)]"
+      className="rounded-2xl bg-card p-5 shadow-[var(--shadow-floating)]"
     >
       <div className="mb-1 flex items-center gap-2 text-primary">
-        {icon}
-        <h2 className="text-base font-bold text-foreground">{title}</h2>
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary-deep)]">
+          {icon}
+        </span>
+        <h2 className="text-base font-extrabold tracking-tight text-foreground">{title}</h2>
       </div>
-      <p className="mb-3 text-xs text-muted-foreground">{subtitle}</p>
+      <p className="mb-4 text-xs font-medium text-muted-foreground">{subtitle}</p>
       {children}
     </motion.section>
   );
