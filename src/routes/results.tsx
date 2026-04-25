@@ -581,8 +581,8 @@ function ResultsContent({
         dir={dir}
         displayName={displayName}
         country={country}
-        skills={analysis.skills}
-        opportunities={analysis.jobs.map(({ job_title, match_percent, local_wage }) => ({
+        skills={enrichedSkills}
+        opportunities={enrichedJobs.map(({ job_title, match_percent, local_wage }) => ({
           job_title,
           match_percent,
           local_wage,
