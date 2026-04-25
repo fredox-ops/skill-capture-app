@@ -1,47 +1,41 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Wrapper around the browser SpeechSynthesis API.
- * - Picks the best available voice for the requested language (any of ar/en/fr/hi).
- * - Tracks which bubble id is currently being spoken so the UI can render
- *   an "audio wave" indicator next to that bubble.
+ * Cloud TTS via the `tts` edge function (ElevenLabs multilingual_v2).
+ * Works for ar/en/fr/hi without requiring any voice to be installed locally.
+ *
+ * - Tracks which bubble id is currently playing so the UI can render an
+ *   "audio wave" indicator next to that bubble.
  * - Persists a global mute preference in localStorage.
- * - Exposes `unlock()` so the first user gesture can satisfy the browser
- *   autoplay policy and let later replies speak automatically.
+ * - `unlock()` is called on the first user gesture (mic press / chip tap)
+ *   so the very first auto-played reply isn't blocked by browser autoplay.
  */
 export function useSpeech() {
-  const [supported, setSupported] = useState(false);
   const [muted, setMuted] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("sawtnet-tts-muted") === "1";
   });
   const [speakingId, setSpeakingId] = useState<number | null>(null);
-  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const unlockedRef = useRef(false);
+  // Cache base64 audio per text so replaying a bubble doesn't re-call the API.
+  const cacheRef = useRef<Map<string, string>>(new Map());
 
-  // Keep a fresh list of voices. getVoices() can return [] until voiceschanged fires.
-  const [voicesReady, setVoicesReady] = useState(false);
+  // Cleanup on unmount.
   useEffect(() => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      setSupported(false);
-      return;
-    }
-    setSupported(true);
-
-    const refresh = () => {
-      const v = window.speechSynthesis.getVoices();
-      voicesRef.current = v;
-      if (v.length > 0) setVoicesReady(true);
-    };
-    refresh();
-    window.speechSynthesis.addEventListener("voiceschanged", refresh);
-    // Some browsers (Chrome) need a kick to populate voices.
-    const t = setTimeout(refresh, 250);
     return () => {
-      clearTimeout(t);
-      window.speechSynthesis.removeEventListener("voiceschanged", refresh);
-      window.speechSynthesis.cancel();
+      audioRef.current?.pause();
+      audioRef.current = null;
     };
+  }, []);
+
+  const cancel = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setSpeakingId(null);
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -52,43 +46,26 @@ export function useSpeech() {
       } catch {
         // ignore
       }
-      if (next && typeof window !== "undefined") {
-        window.speechSynthesis.cancel();
+      if (next && audioRef.current) {
+        audioRef.current.pause();
         setSpeakingId(null);
       }
       return next;
     });
   }, []);
 
-  const cancel = useCallback(() => {
-    if (typeof window === "undefined") return;
-    window.speechSynthesis.cancel();
-    setSpeakingId(null);
-  }, []);
-
-  // Pick the closest available voice for the requested BCP-47 language tag.
-  // Falls back to any voice in the same primary subtag (e.g. "en-*" for "en-US").
-  const pickVoiceForLang = useCallback((preferred: string): SpeechSynthesisVoice | undefined => {
-    const voices = voicesRef.current;
-    if (!voices.length) return undefined;
-    const lower = preferred.toLowerCase();
-    const primary = lower.split("-")[0];
-    return (
-      voices.find((v) => v.lang?.toLowerCase() === lower) ||
-      voices.find((v) => v.lang?.toLowerCase().startsWith(`${primary}-`)) ||
-      voices.find((v) => v.lang?.toLowerCase().startsWith(primary)) ||
-      undefined
-    );
-  }, []);
-
-  // Call from a real user gesture (e.g. mic press) to satisfy autoplay policies.
+  // First user gesture — create a silent <audio> element so subsequent
+  // programmatic .play() calls are allowed by autoplay policy.
   const unlock = useCallback(() => {
     if (unlockedRef.current) return;
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    if (typeof window === "undefined") return;
     try {
-      const u = new SpeechSynthesisUtterance(" ");
-      u.volume = 0;
-      window.speechSynthesis.speak(u);
+      const a = new Audio();
+      a.muted = true;
+      // Tiny silent mp3 (1-frame) — enough to satisfy gesture requirement.
+      a.src =
+        "data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
+      void a.play().catch(() => undefined);
       unlockedRef.current = true;
     } catch {
       // ignore
@@ -96,61 +73,45 @@ export function useSpeech() {
   }, []);
 
   const speak = useCallback(
-    (text: string, lang: string, id: number) => {
-      if (!supported || muted || typeof window === "undefined") return;
+    async (text: string, _lang: string, id: number) => {
+      if (muted) return;
       if (!text?.trim()) return;
+      if (typeof window === "undefined") return;
 
-      const doSpeak = () => {
-        try {
-          window.speechSynthesis.cancel();
-          // Resume in case the engine got paused by the browser.
-          window.speechSynthesis.resume();
-
-          const utter = new SpeechSynthesisUtterance(text);
-          utter.lang = lang;
-          utter.rate = 0.95;
-          utter.pitch = 1;
-          utter.volume = 1;
-
-          const voice = pickVoiceForLang(lang);
-          if (voice) utter.voice = voice;
-
-          utter.onstart = () => setSpeakingId(id);
-          utter.onend = () => setSpeakingId((curr) => (curr === id ? null : curr));
-          utter.onerror = (e) => {
-            console.warn("[tts] error", e.error, "lang=", lang, "voice=", voice?.name);
-            setSpeakingId((curr) => (curr === id ? null : curr));
-          };
-
-          window.speechSynthesis.speak(utter);
-        } catch (err) {
-          console.warn("[tts] speak failed", err);
-        }
-      };
-
-      // If voices haven't loaded yet, wait briefly for voiceschanged.
-      if (voicesRef.current.length === 0) {
-        const handler = () => {
-          voicesRef.current = window.speechSynthesis.getVoices();
-          window.speechSynthesis.removeEventListener("voiceschanged", handler);
-          doSpeak();
-        };
-        window.speechSynthesis.addEventListener("voiceschanged", handler);
-        // Fallback after 600ms even if event never fires.
-        setTimeout(() => {
-          window.speechSynthesis.removeEventListener("voiceschanged", handler);
-          if (voicesRef.current.length === 0) {
-            voicesRef.current = window.speechSynthesis.getVoices();
-          }
-          doSpeak();
-        }, 600);
-        return;
+      // Stop anything currently playing.
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
 
-      doSpeak();
+      try {
+        let base64 = cacheRef.current.get(text);
+        if (!base64) {
+          const { data, error } = await supabase.functions.invoke("tts", {
+            body: { text },
+          });
+          if (error) throw error;
+          if (!data?.audio) throw new Error(data?.error ?? "No audio returned");
+          base64 = data.audio as string;
+          cacheRef.current.set(text, base64);
+        }
+
+        const audio = new Audio(`data:audio/mpeg;base64,${base64}`);
+        audioRef.current = audio;
+        audio.onplay = () => setSpeakingId(id);
+        audio.onended = () => setSpeakingId((curr) => (curr === id ? null : curr));
+        audio.onerror = () => {
+          console.warn("[tts] audio playback error");
+          setSpeakingId((curr) => (curr === id ? null : curr));
+        };
+        await audio.play();
+      } catch (err) {
+        console.warn("[tts] speak failed", err);
+        setSpeakingId((curr) => (curr === id ? null : curr));
+      }
     },
-    [muted, pickVoiceForLang, supported],
+    [muted],
   );
 
-  return { supported, muted, toggleMute, speak, cancel, unlock, speakingId, voicesReady };
+  return { supported: true, muted, toggleMute, speak, cancel, unlock, speakingId };
 }
