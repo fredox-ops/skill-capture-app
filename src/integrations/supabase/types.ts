@@ -18,10 +18,12 @@ export type Database = {
         Row: {
           ai_score: number
           created_at: string
+          esco: Json
           id: string
           jobs: Json
           risk_level: string
           session_id: string
+          share_id: string
           signals: Json
           skills: Json
           user_id: string
@@ -29,10 +31,12 @@ export type Database = {
         Insert: {
           ai_score?: number
           created_at?: string
+          esco?: Json
           id?: string
           jobs?: Json
           risk_level?: string
           session_id: string
+          share_id?: string
           signals?: Json
           skills?: Json
           user_id: string
@@ -40,10 +44,12 @@ export type Database = {
         Update: {
           ai_score?: number
           created_at?: string
+          esco?: Json
           id?: string
           jobs?: Json
           risk_level?: string
           session_id?: string
+          share_id?: string
           signals?: Json
           skills?: Json
           user_id?: string
@@ -180,6 +186,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_share_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
