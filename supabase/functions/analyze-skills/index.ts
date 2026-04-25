@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
   lookupAutomation,
   lookupWage,
@@ -8,6 +9,38 @@ import {
   type AutomationSignal,
   type WageSignal,
 } from "../_shared/econ-data/lookup.ts";
+
+// Read the country config row from the public.country_configs table so that
+// per-country parameters (calibration factor, opportunity types, digital
+// readiness) are inputs to the system, not hardcoded literals.
+interface CountryConfig {
+  iso3: string;
+  display_name: string;
+  currency: string;
+  primary_language: string;
+  secondary_languages: string[];
+  automation_calibration_factor: number;
+  opportunity_types: string[];
+  digital_readiness_pct: number;
+}
+
+const COUNTRY_NAME_TO_ISO3: Record<string, string> = {
+  Morocco: "MAR", India: "IND", Ghana: "GHA", Kenya: "KEN",
+};
+
+async function loadCountryConfig(country: string): Promise<CountryConfig | null> {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return null;
+  const sb = createClient(url, key);
+  const iso3 = COUNTRY_NAME_TO_ISO3[country] ?? country.toUpperCase();
+  const { data } = await sb
+    .from("country_configs")
+    .select("*")
+    .or(`iso3.eq.${iso3},display_name.eq.${country}`)
+    .maybeSingle();
+  return (data as CountryConfig | null) ?? null;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +60,9 @@ serve(async (req) => {
 
   try {
     const { transcript, country = "Morocco", language = "English" } = await req.json();
+    const countryConfig = await loadCountryConfig(country);
+    const calibration = countryConfig?.automation_calibration_factor ?? 1.0;
+    const digitalReadiness = countryConfig?.digital_readiness_pct ?? 50;
 
     if (!transcript || typeof transcript !== "string" || transcript.trim().length < 5) {
       return new Response(
@@ -166,8 +202,11 @@ Use real ISCO-08 codes only.`;
     // worker's protective floor — they are protected by their MOST resilient
     // skill, not the average.
     const automations: AutomationSignal[] = extracted.skills.map((s) => lookupAutomation(s.isco_code));
-    const minProb = Math.min(...automations.map((a) => a.automation_probability));
-    const ai_risk_score = probabilityToResilienceScore(minProb);
+    // Apply the per-country LMIC calibration factor: lower factor (e.g. Ghana
+    // 0.75) means manual tasks are LESS automatable than US baseline → boost
+    // resilience accordingly.
+    const minProb = Math.min(...automations.map((a) => a.automation_probability * calibration));
+    const ai_risk_score = probabilityToResilienceScore(Math.max(0, Math.min(1, minProb)));
     const ai_risk_level = resilienceLevel(ai_risk_score);
 
     // ---- 4. Replace the LLM's wage guess with ILOSTAT lookup per opportunity.
@@ -254,6 +293,18 @@ Use real ISCO-08 codes only.`;
           country,
         },
         education_trend: educationTrend,
+        country_config: countryConfig
+          ? {
+              iso3: countryConfig.iso3,
+              display_name: countryConfig.display_name,
+              currency: countryConfig.currency,
+              automation_calibration_factor: calibration,
+              digital_readiness_pct: digitalReadiness,
+              opportunity_types: countryConfig.opportunity_types,
+              source: "country_configs (Sawt-Net infrastructure layer)",
+              source_short: "country_configs",
+            }
+          : null,
       },
       limits:
         "Wages are national medians by ISCO major group, not local offers. Automation probabilities are derived from Frey-Osborne (US labor market) and may understate manual-task resilience in LMIC contexts. Use as guidance, not as a guarantee.",
