@@ -20,7 +20,7 @@ export function useSpeech() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const unlockedRef = useRef(false);
   // Cache base64 audio per text so replaying a bubble doesn't re-call the API.
-  const cacheRef = useRef<Map<string, string>>(new Map());
+  const cacheRef = useRef<Map<string, { audio: string; mime: string }>>(new Map());
 
   // Cleanup on unmount.
   useEffect(() => {
