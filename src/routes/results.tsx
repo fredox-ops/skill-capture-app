@@ -22,6 +22,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { getResultsCopy, type ResultsCopy } from "@/lib/results-i18n";
+import {
+  lookupAutomation,
+  lookupWage,
+  wittgensteinProjections,
+} from "@/utils/econometricData";
 
 interface Skill {
   name: string;
