@@ -42,6 +42,16 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-bubble-user: var(--bubble-user);
+  --color-bubble-user-foreground: var(--bubble-user-foreground);
+  --color-bubble-bot: var(--bubble-bot);
+  --color-bubble-bot-foreground: var(--bubble-bot-foreground);
+  --color-app-shell: var(--app-shell);
+  --color-chat-bg: var(--chat-bg);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -62,26 +72,55 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --radius: 1rem;
+  /* Sawt-Net brand: trust blue, success green, warning orange */
+  --background: oklch(0.985 0.002 247);
+  --foreground: oklch(0.18 0.02 250);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
+  --card-foreground: oklch(0.18 0.02 250);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --popover-foreground: oklch(0.18 0.02 250);
+
+  /* Primary = WhatsApp-inspired trust blue */
+  --primary: oklch(0.58 0.18 250);
+  --primary-foreground: oklch(0.99 0 0);
+  --primary-glow: oklch(0.7 0.16 245);
+
+  /* Success green */
+  --success: oklch(0.7 0.17 150);
+  --success-foreground: oklch(0.99 0 0);
+
+  /* Warning orange (AI risk) */
+  --warning: oklch(0.75 0.17 55);
+  --warning-foreground: oklch(0.2 0.02 250);
+
+  --secondary: oklch(0.96 0.005 247);
+  --secondary-foreground: oklch(0.2 0.02 250);
+  --muted: oklch(0.96 0.005 247);
+  --muted-foreground: oklch(0.5 0.02 250);
+  --accent: oklch(0.94 0.02 245);
+  --accent-foreground: oklch(0.2 0.02 250);
+  --destructive: oklch(0.6 0.22 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.92 0.01 250);
+  --input: oklch(0.94 0.01 250);
+  --ring: oklch(0.58 0.18 250);
+
+  /* Chat bubble colors */
+  --bubble-user: oklch(0.58 0.18 250);
+  --bubble-user-foreground: oklch(0.99 0 0);
+  --bubble-bot: oklch(1 0 0);
+  --bubble-bot-foreground: oklch(0.2 0.02 250);
+
+  /* App shell */
+  --app-shell: oklch(0.97 0.005 247);
+  --chat-bg: oklch(0.96 0.008 245);
+
+  --gradient-primary: linear-gradient(135deg, var(--primary), var(--primary-glow));
+  --gradient-success: linear-gradient(135deg, oklch(0.7 0.17 150), oklch(0.78 0.15 145));
+  --shadow-app: 0 20px 60px -20px oklch(0.2 0.05 250 / 0.25), 0 0 0 1px oklch(0.92 0.01 250);
+  --shadow-mic: 0 10px 30px -5px oklch(0.58 0.18 250 / 0.5);
+  --shadow-card: 0 2px 8px -2px oklch(0.2 0.05 250 / 0.08);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -137,8 +176,49 @@
     border-color: var(--color-border);
   }
 
-  body {
-    background-color: var(--color-background);
+  html, body {
+    background-color: var(--color-app-shell);
     color: var(--color-foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+}
+
+@layer utilities {
+  .mobile-shell {
+    width: 100%;
+    max-width: 420px;
+    margin-inline: auto;
+    background: var(--color-background);
+    box-shadow: var(--shadow-app);
+    min-height: 100dvh;
+    position: relative;
+    overflow: hidden;
+  }
+
+  @media (min-width: 480px) {
+    .mobile-shell {
+      min-height: min(100dvh, 900px);
+      margin-block: 1rem;
+      border-radius: 2rem;
+      max-height: 900px;
+    }
+  }
+
+  .ripple {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: var(--primary);
+    opacity: 0.4;
+    animation: ripple 1.6s ease-out infinite;
+  }
+  .ripple.delay-1 { animation-delay: 0.4s; }
+  .ripple.delay-2 { animation-delay: 0.8s; }
+
+  @keyframes ripple {
+    0% { transform: scale(1); opacity: 0.5; }
+    100% { transform: scale(2.4); opacity: 0; }
   }
 }
