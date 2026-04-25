@@ -82,11 +82,13 @@ function ChatScreen() {
   const analyzing = step !== "idle";
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [replying, setReplying] = useState(false);
-  // Text fallback — revealed automatically when the mic is unavailable
-  // (unsupported browser or recognition error like "network"). The user
-  // can also tap "Type instead" to open it manually.
-  const [showTextInput, setShowTextInput] = useState(false);
-  const [typedMessage, setTypedMessage] = useState("");
+  // Transient mic state: when true, the mic button shows a no-wifi icon in
+  // a warning color and shakes briefly. Purely visual — no text required.
+  const [micWarning, setMicWarning] = useState(false);
+  // Severe (red) state — analyze failed completely after retries.
+  const [micError, setMicError] = useState(false);
+  // Brief green flash after a successful analysis save (right before navigate).
+  const [micSuccess, setMicSuccess] = useState(false);
 
   const profileLang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
 
