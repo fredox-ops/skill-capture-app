@@ -14,7 +14,104 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analyses: {
+        Row: {
+          ai_score: number
+          created_at: string
+          id: string
+          jobs: Json
+          risk_level: string
+          session_id: string
+          skills: Json
+          user_id: string
+        }
+        Insert: {
+          ai_score?: number
+          created_at?: string
+          id?: string
+          jobs?: Json
+          risk_level?: string
+          session_id: string
+          skills?: Json
+          user_id: string
+        }
+        Update: {
+          ai_score?: number
+          created_at?: string
+          id?: string
+          jobs?: Json
+          risk_level?: string
+          session_id?: string
+          skills?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analyses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "voice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          country: string
+          created_at: string
+          display_name: string | null
+          id: string
+          language: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          country?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          language?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          country?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          language?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      voice_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          language: string
+          transcript: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          language?: string
+          transcript: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          language?: string
+          transcript?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
