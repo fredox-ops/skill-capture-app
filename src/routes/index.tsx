@@ -1,10 +1,20 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { History as HistoryIcon, Mic, Settings, Sparkles, Square, MicOff } from "lucide-react";
+import {
+  History as HistoryIcon,
+  Mic,
+  MicOff,
+  Settings,
+  Sparkles,
+  Square,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { toast } from "sonner";
 import { MobileShell } from "@/components/MobileShell";
 import { SettingsModal } from "@/components/SettingsModal";
+import { AudioWave } from "@/components/AudioWave";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import {
@@ -12,6 +22,7 @@ import {
   getRecognitionLang,
   RECOGNITION_LANG_LABELS,
 } from "@/hooks/useSpeechRecognition";
+import { useSpeech } from "@/hooks/useSpeech";
 import { supabase } from "@/integrations/supabase/client";
 
 type AnalyzeStep = "idle" | "saving-transcript" | "calling-ai" | "saving-results";
@@ -20,7 +31,11 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Sawt-Net — Speak your skills" },
-      { name: "description", content: "Tap the mic and speak your skills. Sawt-Net turns your voice into job opportunities." },
+      {
+        name: "description",
+        content:
+          "Tap the mic and speak your skills. Sawt-Net turns your voice into job opportunities.",
+      },
     ],
   }),
   component: ChatScreen,
@@ -32,6 +47,21 @@ interface Bubble {
   text: string;
 }
 
+const GREETING_AR =
+  "أهلا 👋 أنا Sawt-Net. عاود لي على الخدمة اللي كتدير كل نهار، وأنا غادي نعاونك تلقا فرص خدمة حقيقية.";
+
+const FOLLOW_UP_QUESTIONS_AR = [
+  "مزيان! شنو هما الحوايج اللي كتعرف تصاوب بيدك؟",
+  "شحال هادي وأنت كدير هاد الخدمة؟",
+  "واش كتخدم بوحدك ولا مع ناس أخرين؟",
+  "شنو هي أصعب حاجة فهاد الخدمة بالنسبة ليك؟",
+  "عاود لي على آخر يوم خدمت فيه — كيفاش دازت النهار؟",
+  "واش كتستعمل شي ماكينات ولا أدوات خاصة؟",
+  "شنو هي الحاجة اللي كتعجبك أكثر فخدمتك؟",
+];
+
+const MIN_USER_MESSAGES_TO_ANALYZE = 2;
+
 function ChatScreen() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -39,17 +69,35 @@ function ChatScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [step, setStep] = useState<AnalyzeStep>("idle");
   const analyzing = step !== "idle";
-  const [bubbles, setBubbles] = useState<Bubble[]>([
-    {
-      id: 1,
-      from: "bot",
-      text: "Hi 👋 I'm Sawt-Net. Tap the microphone and tell me what you do every day — your real skills.",
-    },
+  const questionIndexRef = useRef(0);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const [bubbles, setBubbles] = useState<Bubble[]>(() => [
+    { id: 1, from: "bot", text: GREETING_AR },
   ]);
 
   const lang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
   const { supported, listening, transcript, interim, error, start, stop, reset } =
     useSpeechRecognition(lang);
+
+  const tts = useSpeech();
+
+  // Speak the initial greeting once TTS is ready (and unmuted).
+  const greetedRef = useRef(false);
+  useEffect(() => {
+    if (greetedRef.current) return;
+    if (!tts.supported || tts.muted) return;
+    greetedRef.current = true;
+    // Slight delay so voices have a chance to load on first paint.
+    const t = setTimeout(() => tts.speak(GREETING_AR, "ar-MA", 1), 400);
+    return () => clearTimeout(t);
+  }, [tts]);
+
+  // Auto-scroll to newest bubble.
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [bubbles, listening, interim, transcript]);
 
   // Redirect if not signed in
   useEffect(() => {
@@ -58,35 +106,42 @@ function ChatScreen() {
     }
   }, [user, authLoading, navigate]);
 
-  // Show error toast
+  // Show STT error toast
   useEffect(() => {
     if (error) toast.error(error);
   }, [error]);
+
+  // Cancel any in-flight speech when the user starts talking again.
+  useEffect(() => {
+    if (listening) tts.cancel();
+  }, [listening, tts]);
+
+  const userMessageCount = bubbles.filter((b) => b.from === "user").length;
+  const canAnalyze = userMessageCount >= MIN_USER_MESSAGES_TO_ANALYZE && !analyzing;
 
   const stopAndPush = () => {
     stop();
     const text = transcript.trim();
     if (!text) {
-      // Silently reset on empty release — no toast spam if the user just tapped.
       reset();
       return;
     }
-    setBubbles((b) => [...b, { id: Date.now(), from: "user", text }]);
-    setTimeout(() => {
-      setBubbles((b) => [
-        ...b,
-        {
-          id: Date.now() + 1,
-          from: "bot",
-          text: "Got it! Ready to analyze these skills?",
-        },
-      ]);
-    }, 400);
+    const userBubbleId = Date.now();
+    setBubbles((b) => [...b, { id: userBubbleId, from: "user", text }]);
+
+    // Pick the next mock follow-up question and push it as a bot bubble.
+    const idx = questionIndexRef.current % FOLLOW_UP_QUESTIONS_AR.length;
+    questionIndexRef.current += 1;
+    const followUp = FOLLOW_UP_QUESTIONS_AR[idx];
+    const botBubbleId = userBubbleId + 1;
+
+    window.setTimeout(() => {
+      setBubbles((b) => [...b, { id: botBubbleId, from: "bot", text: followUp }]);
+      tts.speak(followUp, "ar-MA", botBubbleId);
+    }, 650);
   };
 
   // ---- Press-and-hold mic handlers ----------------------------------------
-  // Pointer events cover mouse + touch + pen on modern browsers. We also wire
-  // keyboard (Space) for accessibility.
   const handleHoldStart = (e: React.PointerEvent | React.KeyboardEvent) => {
     if (!supported || listening || analyzing) return;
     if ("preventDefault" in e) e.preventDefault();
@@ -97,29 +152,32 @@ function ChatScreen() {
     stopAndPush();
   };
 
-  const lastUserMessage = [...bubbles].reverse().find((b) => b.from === "user")?.text;
-
   const startAnalysis = async () => {
-    if (!lastUserMessage || !user) return;
+    if (!canAnalyze || !user) return;
+
+    // Concatenate ALL user messages into a single rich transcript.
+    const fullTranscript = bubbles
+      .filter((b) => b.from === "user")
+      .map((b) => b.text)
+      .join(" \n ");
+
     setStep("saving-transcript");
     try {
-      // Step 1 — Save the voice session
       const { data: session, error: sessionErr } = await supabase
         .from("voice_sessions")
         .insert({
           user_id: user.id,
-          transcript: lastUserMessage,
+          transcript: fullTranscript,
           language: lang,
         })
         .select()
         .single();
       if (sessionErr) throw sessionErr;
 
-      // Step 2 — Call analyze-skills edge function
       setStep("calling-ai");
       const { data, error: fnErr } = await supabase.functions.invoke("analyze-skills", {
         body: {
-          transcript: lastUserMessage,
+          transcript: fullTranscript,
           country: profile?.country ?? "Morocco",
           language: profile?.language ?? "English",
         },
@@ -127,7 +185,6 @@ function ChatScreen() {
       if (fnErr) throw fnErr;
       if (data?.error) throw new Error(data.error);
 
-      // Step 3 — Save the analysis (new ISCO-08 schema)
       setStep("saving-results");
       const { data: analysis, error: aErr } = await supabase
         .from("analyses")
@@ -143,6 +200,7 @@ function ChatScreen() {
         .single();
       if (aErr) throw aErr;
 
+      tts.cancel();
       navigate({ to: "/results", search: { id: analysis.id } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Analysis failed";
@@ -183,6 +241,16 @@ function ChatScreen() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {tts.supported && (
+              <button
+                onClick={tts.toggleMute}
+                aria-label={tts.muted ? "Unmute voice" : "Mute voice"}
+                title={tts.muted ? "Unmute voice" : "Mute voice"}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
+              >
+                {tts.muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+              </button>
+            )}
             <Link
               to="/history"
               aria-label="History"
@@ -202,27 +270,38 @@ function ChatScreen() {
       </header>
 
       {/* Chat area */}
-      <div className="flex-1 overflow-y-auto bg-chat-bg">
+      <div ref={chatScrollRef} className="flex-1 overflow-y-auto bg-chat-bg">
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
           <div className="space-y-3">
-            {bubbles.map((b) => (
-              <motion.div
-                key={b.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`flex ${b.from === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-[15px] leading-snug shadow-sm ${
-                    b.from === "user"
-                      ? "rounded-br-md bg-bubble-user text-bubble-user-foreground"
-                      : "rounded-bl-md bg-bubble-bot text-bubble-bot-foreground"
-                  }`}
+            {bubbles.map((b) => {
+              const isUser = b.from === "user";
+              const isSpeaking = !isUser && tts.speakingId === b.id;
+              return (
+                <motion.div
+                  key={b.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                 >
-                  {b.text}
-                </div>
-              </motion.div>
-            ))}
+                  <div
+                    dir={isUser ? "auto" : "rtl"}
+                    className={`relative max-w-[80%] rounded-2xl px-4 py-2.5 text-[15px] leading-snug shadow-sm ${
+                      isUser
+                        ? "rounded-br-md bg-bubble-user text-bubble-user-foreground"
+                        : "rounded-bl-md bg-bubble-bot text-bubble-bot-foreground"
+                    }`}
+                  >
+                    <span className="block">{b.text}</span>
+                    {isSpeaking && (
+                      <span className="mt-1 flex items-center gap-1.5 text-[11px] text-primary">
+                        <AudioWave />
+                        <span>Speaking…</span>
+                      </span>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
 
             {listening && (transcript || interim) && (
               <div className="flex justify-end">
@@ -237,86 +316,90 @@ function ChatScreen() {
         </div>
       </div>
 
-      {/* Bottom action area */}
-      <div className="border-t border-border bg-card">
-        <div className="mx-auto w-full max-w-3xl px-5 pb-6 pt-4 sm:px-8">
+      {/* Bottom mic area (always mic — no inline analyze button) */}
+      <div className="relative border-t border-border bg-card">
+        {/* Floating Action Button — gated until enough user messages */}
+        <button
+          onClick={startAnalysis}
+          disabled={!canAnalyze}
+          aria-label="Analyze My Skills"
+          className={`absolute -top-7 right-5 z-20 flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all ${
+            canAnalyze
+              ? "fab-pulse bg-primary text-primary-foreground"
+              : "cursor-not-allowed bg-muted text-muted-foreground opacity-60"
+          }`}
+        >
+          <Sparkles className={`h-4 w-4 ${analyzing ? "animate-spin" : ""}`} />
+          {analyzing ? "Analyzing…" : "Analyze My Skills"}
+        </button>
+
+        <div className="mx-auto w-full max-w-3xl px-5 pb-6 pt-6 sm:px-8">
           <AnimatePresence mode="wait">
-            {lastUserMessage && !listening ? (
-              <motion.div
-                key="analyze"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-center gap-2"
-              >
+            <motion.div
+              key="mic"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col items-center gap-2"
+            >
+              <div className="relative flex h-20 w-20 items-center justify-center">
+                {listening && (
+                  <>
+                    <span className="ripple" />
+                    <span className="ripple delay-1" />
+                    <span className="ripple delay-2" />
+                  </>
+                )}
                 <button
-                  onClick={startAnalysis}
-                  disabled={analyzing}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground shadow-[var(--shadow-mic)] active:scale-[0.98] disabled:opacity-70"
+                  onPointerDown={handleHoldStart}
+                  onPointerUp={handleHoldEnd}
+                  onPointerLeave={handleHoldEnd}
+                  onPointerCancel={handleHoldEnd}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.code === "Space") handleHoldStart(e);
+                  }}
+                  onKeyUp={(e) => {
+                    if (e.key === " " || e.code === "Space") handleHoldEnd();
+                  }}
+                  onContextMenu={(e) => e.preventDefault()}
+                  disabled={!supported || analyzing}
+                  aria-label={listening ? "Release to send" : "Hold to record"}
+                  className="relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] transition-transform disabled:opacity-50 touch-none"
+                  style={{ transform: listening ? "scale(1.08)" : undefined }}
                 >
-                  <Sparkles className={`h-5 w-5 ${analyzing ? "animate-spin" : ""}`} />
-                  {analyzing ? "Analyzing your skills…" : "Analyze My Skills"}
-                </button>
-                {analyzing && (
-                  <p className="text-xs text-muted-foreground">{stepLabel[step]}</p>
-                )}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="mic"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-center gap-2"
-              >
-                <div className="relative flex h-20 w-20 items-center justify-center">
-                  {listening && (
-                    <>
-                      <span className="ripple" />
-                      <span className="ripple delay-1" />
-                      <span className="ripple delay-2" />
-                    </>
+                  {!supported ? (
+                    <MicOff className="h-8 w-8" />
+                  ) : listening ? (
+                    <Square className="h-7 w-7 fill-current" />
+                  ) : (
+                    <Mic className="h-8 w-8" />
                   )}
-                  <button
-                    onPointerDown={handleHoldStart}
-                    onPointerUp={handleHoldEnd}
-                    onPointerLeave={handleHoldEnd}
-                    onPointerCancel={handleHoldEnd}
-                    onKeyDown={(e) => {
-                      if (e.key === " " || e.code === "Space") handleHoldStart(e);
-                    }}
-                    onKeyUp={(e) => {
-                      if (e.key === " " || e.code === "Space") handleHoldEnd();
-                    }}
-                    onContextMenu={(e) => e.preventDefault()}
-                    disabled={!supported || analyzing}
-                    aria-label={listening ? "Release to send" : "Hold to record"}
-                    className="relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] transition-transform disabled:opacity-50 touch-none"
-                    style={{ transform: listening ? "scale(1.08)" : undefined }}
-                  >
-                    {!supported ? (
-                      <MicOff className="h-8 w-8" />
-                    ) : listening ? (
-                      <Square className="h-7 w-7 fill-current" />
-                    ) : (
-                      <Mic className="h-8 w-8" />
-                    )}
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {!supported
-                    ? "Voice input not supported. Try Chrome."
-                    : listening
-                      ? "Listening… release to send"
-                      : "Hold to speak"}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {!supported
+                  ? "Voice input not supported. Try Chrome."
+                  : listening
+                    ? "Listening… release to send"
+                    : userMessageCount === 0
+                      ? "Hold to start the conversation"
+                      : "Hold to keep talking"}
+              </p>
+              {supported && (
+                <p className="text-[11px] text-muted-foreground/70">
+                  Language: {RECOGNITION_LANG_LABELS[lang]}
                 </p>
-                {supported && (
-                  <p className="text-[11px] text-muted-foreground/70">
-                    Language: {RECOGNITION_LANG_LABELS[lang]}
-                  </p>
-                )}
-              </motion.div>
-            )}
+              )}
+              {analyzing && (
+                <p className="text-[11px] font-medium text-primary">{stepLabel[step]}</p>
+              )}
+              {!canAnalyze && userMessageCount > 0 && !analyzing && (
+                <p className="text-[11px] text-muted-foreground/70">
+                  Send {MIN_USER_MESSAGES_TO_ANALYZE - userMessageCount} more message
+                  {MIN_USER_MESSAGES_TO_ANALYZE - userMessageCount === 1 ? "" : "s"} to unlock analysis
+                </p>
+              )}
+            </motion.div>
           </AnimatePresence>
         </div>
       </div>
