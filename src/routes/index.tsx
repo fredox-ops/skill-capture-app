@@ -19,6 +19,7 @@ import {
 import { MobileShell } from "@/components/MobileShell";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AudioWave } from "@/components/AudioWave";
+import { OnboardingFlow } from "@/components/OnboardingFlow";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import {
@@ -79,6 +80,13 @@ function ChatScreen() {
   const { user, loading: authLoading } = useAuth();
   const { profile } = useProfile();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Voice-first onboarding gate. Shown the very first time a signed-in
+  // user lands on the chat — captures country/language by voice and is
+  // then dismissed forever (tracked in localStorage).
+  const [onboarding, setOnboarding] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("sawtnet-onboarded") !== "1";
+  });
   const [step, setStep] = useState<AnalyzeStep>("idle");
   const [analyzeAttempt, setAnalyzeAttempt] = useState(0);
   const analyzing = step !== "idle";
@@ -121,6 +129,15 @@ function ChatScreen() {
       // ignore
     }
   };
+
+  // When the profile updates (e.g. after voice onboarding writes Morocco/Arabic),
+  // pull the new language into the chat so the greeting + recognizer match.
+  useEffect(() => {
+    if (!profile) return;
+    const next = getRecognitionLang(profile.language, profile.country);
+    setLang((curr) => (curr === next ? curr : next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.country, profile?.language]);
 
   const { supported, listening, transcript, interim, error, start, stop, reset } =
     useSpeechRecognition(lang);
@@ -428,6 +445,26 @@ function ChatScreen() {
         <div className="flex flex-1 items-center justify-center">
           <Sparkles className="h-8 w-8 animate-pulse text-primary" />
         </div>
+      </MobileShell>
+    );
+  }
+
+  // Voice-first onboarding takes over the entire viewport on first visit.
+  // It captures country/language by voice, persists it to the profile, then
+  // hands control back to the main chat (which will pick up the new lang
+  // and greet them in their tongue thanks to the existing greeting effect).
+  if (onboarding && user) {
+    return (
+      <MobileShell>
+        <OnboardingFlow
+          onComplete={() => {
+            // Reset the chat's initial bubble so the next render uses the
+            // freshly-detected language. The greeting effect will re-speak
+            // it automatically.
+            greetedRef.current = false;
+            setOnboarding(false);
+          }}
+        />
       </MobileShell>
     );
   }
