@@ -586,17 +586,17 @@ function ChatScreen() {
         </div>
       </div>
 
-      {/* Bottom mic area — fixed-height dock, never pushed by messages */}
-      <div className="relative flex-shrink-0 border-t border-border bg-card">
+      {/* Bottom mic dock — floating panel above off-white shell, no hard border */}
+      <div className="relative flex-shrink-0 bg-card shadow-[0_-8px_30px_-12px_oklch(0.22_0.05_250/0.10)]">
         {/* Floating Action Button — gated until enough user messages */}
         <button
           onClick={startAnalysis}
           disabled={!canAnalyze}
           aria-label="Analyze My Skills"
-          className={`absolute -top-7 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all ${
+          className={`absolute -top-7 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full transition-all ${
             canAnalyze
-              ? "fab-pulse bg-primary text-primary-foreground"
-              : "cursor-not-allowed bg-muted text-muted-foreground opacity-60"
+              ? "fab-pulse bg-gradient-to-br from-primary to-[var(--primary-glow)] text-primary-foreground"
+              : "cursor-not-allowed bg-muted text-muted-foreground opacity-60 shadow-[var(--shadow-card)]"
           }`}
         >
           {analyzing ? (
@@ -606,10 +606,9 @@ function ChatScreen() {
           )}
         </button>
 
-        <div className="mx-auto w-full max-w-3xl px-5 pb-6 pt-6 sm:px-8">
-          {/* Per-turn language picker — tap before recording so the recognizer
-              hears the language you're actually about to speak. */}
-          <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+        <div className="mx-auto w-full max-w-3xl px-5 pb-7 pt-7 sm:px-8">
+          {/* Per-turn language picker — pill tags */}
+          <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
             {(Object.keys(RECOGNITION_LANG_LABELS) as RecognitionLang[]).map((code) => {
               const active = lang === code;
               return (
@@ -618,10 +617,10 @@ function ChatScreen() {
                   type="button"
                   onClick={() => pickLang(code)}
                   disabled={listening || analyzing}
-                  className={`rounded-full px-3 py-1 text-[11px] font-medium transition-all ${
+                  className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold tracking-wide transition-all ${
                     active
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-muted text-muted-foreground hover:bg-muted/70"
+                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
+                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   } disabled:cursor-not-allowed disabled:opacity-50`}
                   aria-pressed={active}
                   aria-label={`Speak in ${RECOGNITION_LANG_LABELS[code]}`}
@@ -633,13 +632,12 @@ function ChatScreen() {
           </div>
 
           {/* "Wait for signal" overlay — large pulsing radar shown while the
-              analyze pipeline is running. No text required: the icon + colour
-              tell the story for non-readers, and a chime played at start. */}
+              analyze pipeline is running. */}
           {analyzing && (
             <div className="mb-4 flex flex-col items-center gap-2">
               <div className="relative flex h-16 w-16 items-center justify-center">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/40" />
-                <span className="absolute inline-flex h-2/3 w-2/3 animate-ping rounded-full bg-primary/30 [animation-delay:300ms]" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/30" />
+                <span className="absolute inline-flex h-2/3 w-2/3 animate-ping rounded-full bg-primary/40 [animation-delay:300ms]" />
                 <Loader2 className="relative h-8 w-8 animate-spin text-primary" />
               </div>
             </div>
@@ -651,17 +649,33 @@ function ChatScreen() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-2"
+              className="flex flex-col items-center gap-3"
             >
-              <div className="relative flex h-20 w-20 items-center justify-center">
+              <div className="relative flex h-24 w-24 items-center justify-center">
+                {/* Multi-layer radar — only while listening, only on the safe state */}
                 {listening && !micWarning && !micError && !micSuccess && (
                   <>
-                    <span className="ripple" />
-                    <span className="ripple delay-1" />
-                    <span className="ripple delay-2" />
+                    <motion.span
+                      className="absolute h-24 w-24 rounded-full border-2 border-primary/60"
+                      initial={{ scale: 0.95, opacity: 0.7 }}
+                      animate={{ scale: 2.4, opacity: 0 }}
+                      transition={{ duration: 2, repeat: Infinity, ease: [0.16, 1, 0.3, 1] }}
+                    />
+                    <motion.span
+                      className="absolute h-24 w-24 rounded-full border-2 border-primary/50"
+                      initial={{ scale: 0.95, opacity: 0.6 }}
+                      animate={{ scale: 2.4, opacity: 0 }}
+                      transition={{ duration: 2, delay: 0.5, repeat: Infinity, ease: [0.16, 1, 0.3, 1] }}
+                    />
+                    <motion.span
+                      className="absolute h-24 w-24 rounded-full border-2 border-primary/40"
+                      initial={{ scale: 0.95, opacity: 0.5 }}
+                      animate={{ scale: 2.4, opacity: 0 }}
+                      transition={{ duration: 2, delay: 1, repeat: Infinity, ease: [0.16, 1, 0.3, 1] }}
+                    />
                   </>
                 )}
-                <button
+                <motion.button
                   onPointerDown={handleHoldStart}
                   onPointerUp={handleHoldEnd}
                   onPointerLeave={handleHoldEnd}
@@ -685,16 +699,19 @@ function ChatScreen() {
                             ? "Release to send"
                             : "Hold to record"
                   }
-                  className={`relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full text-white shadow-[var(--shadow-mic)] transition-all touch-none ${
+                  animate={listening && !micWarning && !micError ? { scale: 1.08 } : { scale: 1 }}
+                  transition={{ type: "spring", stiffness: 280, damping: 18 }}
+                  className={`relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full text-white touch-none ${
                     micError
-                      ? "bg-destructive animate-shake"
+                      ? "bg-destructive animate-shake shadow-[0_18px_42px_-8px_oklch(0.62_0.22_27/0.55)]"
                       : micWarning
-                        ? "bg-warning animate-shake"
+                        ? "bg-warning animate-shake shadow-[0_18px_42px_-8px_oklch(0.78_0.16_60/0.55)]"
                         : micSuccess
-                          ? "bg-success"
-                          : "bg-primary disabled:opacity-50"
+                          ? "bg-success shadow-[0_18px_42px_-8px_oklch(0.7_0.17_150/0.55)]"
+                          : listening
+                            ? "bg-gradient-to-br from-primary to-[var(--primary-glow)] shadow-[var(--shadow-mic)]"
+                            : "mic-glow bg-gradient-to-br from-primary to-[var(--primary-glow)] disabled:opacity-50"
                   }`}
-                  style={{ transform: listening && !micWarning && !micError ? "scale(1.08)" : undefined }}
                 >
                   {micError || micWarning ? (
                     <WifiOff className="h-9 w-9" />
@@ -707,11 +724,10 @@ function ChatScreen() {
                   ) : (
                     <Mic className="h-8 w-8" />
                   )}
-                </button>
+                </motion.button>
               </div>
 
-              {/* Tiny dot indicator for "remaining messages until analysis" —
-                  visual, not text-based. Filled = sent, empty = needed. */}
+              {/* Tiny dot indicator for "remaining messages until analysis" */}
               {!analyzing && userMessageCount < MIN_USER_MESSAGES_TO_ANALYZE && userMessageCount > 0 && (
                 <div className="flex items-center gap-1.5" aria-label={`${userMessageCount} of ${MIN_USER_MESSAGES_TO_ANALYZE} messages sent`}>
                   {Array.from({ length: MIN_USER_MESSAGES_TO_ANALYZE }).map((_, i) => (
