@@ -151,43 +151,56 @@ Be concise, realistic, and grounded in the transcript. Use real ISCO-08 codes, n
 
     const result = JSON.parse(toolCall.function.arguments);
 
-    // Enrich opportunities with real local job listings via Tavily
+    // Enrich opportunities with real local job listings via Tavily.
+    // Each Tavily call is wrapped in a 6-second timeout via AbortController so
+    // a slow Tavily request can never hang the entire edge function.
     const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY");
     if (TAVILY_API_KEY && Array.isArray(result.opportunities)) {
-      const enriched = await Promise.all(
-        result.opportunities.map(async (op: { job_title: string; match_percent: number; local_wage: string }) => {
-          try {
-            const tavilyRes = await fetch("https://api.tavily.com/search", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${TAVILY_API_KEY}`,
-              },
-              body: JSON.stringify({
-                query: `${op.job_title} jobs in ${country} hiring now`,
-                search_depth: "basic",
-                max_results: 3,
-                include_answer: false,
-              }),
-            });
-            if (!tavilyRes.ok) {
-              console.error("Tavily error", tavilyRes.status, await tavilyRes.text());
+      const tavilyResults = await Promise.allSettled(
+        result.opportunities.map(
+          async (op: { job_title: string; match_percent: number; local_wage: string }) => {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 6000);
+            try {
+              const tavilyRes = await fetch("https://api.tavily.com/search", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${TAVILY_API_KEY}`,
+                },
+                body: JSON.stringify({
+                  query: `${op.job_title} jobs in ${country} hiring now`,
+                  search_depth: "basic",
+                  max_results: 3,
+                  include_answer: false,
+                }),
+                signal: controller.signal,
+              });
+              if (!tavilyRes.ok) {
+                console.error("Tavily error", tavilyRes.status, await tavilyRes.text());
+                return { ...op, listings: [] };
+              }
+              const tavilyData = await tavilyRes.json();
+              const listings = (tavilyData.results || [])
+                .slice(0, 3)
+                .map((r: { title: string; url: string; content?: string }) => ({
+                  title: r.title,
+                  url: r.url,
+                  snippet: (r.content || "").slice(0, 160),
+                }));
+              return { ...op, listings };
+            } catch (err) {
+              console.error("Tavily fetch failed:", err);
               return { ...op, listings: [] };
+            } finally {
+              clearTimeout(timeout);
             }
-            const tavilyData = await tavilyRes.json();
-            const listings = (tavilyData.results || []).slice(0, 3).map((r: { title: string; url: string; content?: string }) => ({
-              title: r.title,
-              url: r.url,
-              snippet: (r.content || "").slice(0, 160),
-            }));
-            return { ...op, listings };
-          } catch (err) {
-            console.error("Tavily fetch failed:", err);
-            return { ...op, listings: [] };
-          }
-        }),
+          },
+        ),
       );
-      result.opportunities = enriched;
+      result.opportunities = tavilyResults.map((r, i) =>
+        r.status === "fulfilled" ? r.value : { ...result.opportunities[i], listings: [] },
+      );
     }
 
     return new Response(JSON.stringify(result), {
