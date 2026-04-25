@@ -22,6 +22,7 @@ export type Database = {
           jobs: Json
           risk_level: string
           session_id: string
+          signals: Json
           skills: Json
           user_id: string
         }
@@ -32,6 +33,7 @@ export type Database = {
           jobs?: Json
           risk_level?: string
           session_id: string
+          signals?: Json
           skills?: Json
           user_id: string
         }
@@ -42,6 +44,7 @@ export type Database = {
           jobs?: Json
           risk_level?: string
           session_id?: string
+          signals?: Json
           skills?: Json
           user_id?: string
         }

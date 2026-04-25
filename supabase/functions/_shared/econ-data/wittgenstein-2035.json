@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "source": "Wittgenstein Centre Human Capital Data Explorer v2.0 — SSP2 (middle-of-the-road) scenario. Share of population aged 20–39 with at least upper-secondary education.",
+    "url": "http://dataexplorer.wittgensteincentre.org/",
+    "field": "Percentage points of the 20–39 cohort projected to hold ISCED 3+ (upper-secondary) education, 2025 vs 2035."
+  },
+  "countries": {
+    "MAR": { "secondary_or_higher_2025_pct": 51, "secondary_or_higher_2035_pct": 64, "narrative_en": "Morocco's youth education base is rising sharply — by 2035, roughly 2 in 3 young Moroccans will hold upper-secondary or higher. Manual-only profiles will face stiffer competition." },
+    "IND": { "secondary_or_higher_2025_pct": 47, "secondary_or_higher_2035_pct": 61, "narrative_en": "India is on track to add ~14 percentage points of secondary-educated youth in a decade. Routine clerical roles will be more contested; durable human-skill profiles stay valuable." },
+    "GHA": { "secondary_or_higher_2025_pct": 44, "secondary_or_higher_2035_pct": 56, "narrative_en": "Ghana's secondary-educated youth share grows from ~44% to ~56% by 2035. Skilled trades remain undersupplied." },
+    "KEN": { "secondary_or_higher_2025_pct": 48, "secondary_or_higher_2035_pct": 60, "narrative_en": "Kenya's secondary-completion is rising fast; technical and ICT-adjacent skills will see the largest premium." }
+  }
+}

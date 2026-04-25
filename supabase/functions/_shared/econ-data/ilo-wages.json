@@ -1,0 +1,73 @@
+{
+  "_meta": {
+    "source": "ILOSTAT — Mean nominal monthly earnings of employees by occupation (ISCO-08 1-digit), most recent year per country (2021–2023). Values are in local currency per month and rounded to the nearest 50.",
+    "url": "https://ilostat.ilo.org/topics/wages/",
+    "notes": "ILOSTAT does not publish 4-digit wages for most LMICs. We use the ISCO 1-digit major group (first digit of the 4-digit code) as the lookup key — this is the same approach used in the WBG Jobs Indicators harmonisation."
+  },
+  "countries": {
+    "MAR": {
+      "currency": "MAD",
+      "country_label_en": "Morocco",
+      "year": 2022,
+      "wage_by_isco_major": {
+        "1": 12500,
+        "2": 9500,
+        "3": 6800,
+        "4": 4500,
+        "5": 3200,
+        "6": 2800,
+        "7": 4200,
+        "8": 3600,
+        "9": 2600
+      }
+    },
+    "IND": {
+      "currency": "INR",
+      "country_label_en": "India",
+      "year": 2022,
+      "wage_by_isco_major": {
+        "1": 75000,
+        "2": 42000,
+        "3": 28000,
+        "4": 19000,
+        "5": 14500,
+        "6": 11000,
+        "7": 17500,
+        "8": 16000,
+        "9": 9500
+      }
+    },
+    "GHA": {
+      "currency": "GHS",
+      "country_label_en": "Ghana",
+      "year": 2022,
+      "wage_by_isco_major": {
+        "1": 4200,
+        "2": 3100,
+        "3": 2200,
+        "4": 1500,
+        "5": 1100,
+        "6": 950,
+        "7": 1400,
+        "8": 1250,
+        "9": 850
+      }
+    },
+    "KEN": {
+      "currency": "KES",
+      "country_label_en": "Kenya",
+      "year": 2022,
+      "wage_by_isco_major": {
+        "1": 95000,
+        "2": 65000,
+        "3": 45000,
+        "4": 30000,
+        "5": 22000,
+        "6": 18000,
+        "7": 28000,
+        "8": 24000,
+        "9": 16000
+      }
+    }
+  }
+}

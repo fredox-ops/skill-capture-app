@@ -3,10 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
+  BookOpen,
   Briefcase,
   Coins,
+  Database,
   Download,
   History as HistoryIcon,
+  Info,
   ShieldAlert,
   Sparkles,
   TrendingUp,
@@ -23,6 +26,8 @@ import { getResultsCopy, type ResultsCopy } from "@/lib/results-i18n";
 interface Skill {
   name: string;
   isco_code: string;
+  automation_probability?: number;
+  automation_source?: string;
 }
 interface Listing {
   title: string;
@@ -33,9 +38,28 @@ interface Opportunity {
   job_title: string;
   match_percent: number;
   local_wage: string;
+  isco_code?: string;
+  wage_year?: number | null;
+  wage_source?: string | null;
+  automation_probability?: number;
   listings?: Listing[];
 }
 type RiskLevel = "Low Risk" | "Medium Risk" | "High Risk";
+
+interface Signals {
+  automation?: { source?: string; source_short?: string; method?: string };
+  wages?: { source?: string; source_short?: string; year?: number | null; country?: string };
+  education_trend?: {
+    country: string;
+    iso3: string;
+    share_2025_pct: number;
+    share_2035_pct: number;
+    delta_pct: number;
+    narrative_en: string;
+    source: string;
+    source_short: string;
+  } | null;
+}
 
 interface Analysis {
   id: string;
@@ -44,6 +68,7 @@ interface Analysis {
   ai_score: number;
   risk_level: RiskLevel;
   jobs: Opportunity[];
+  signals?: Signals;
 }
 
 export const Route = createFileRoute("/results")({
@@ -88,7 +113,7 @@ function ResultsScreen() {
     const fetchAnalysis = async () => {
       let query = supabase
         .from("analyses")
-        .select("id, session_id, skills, ai_score, risk_level, jobs")
+        .select("id, session_id, skills, ai_score, risk_level, jobs, signals")
         .eq("user_id", user.id);
       if (id) {
         query = query.eq("id", id);
@@ -285,18 +310,45 @@ function ResultsContent({
           </button>
 
           <div className="flex flex-wrap gap-2">
-            {analysis.skills.map((s, idx) => (
-              <span
-                key={`${s.isco_code}-${idx}`}
-                className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
-              >
-                {s.name}
-                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold tracking-wide text-primary/80">
-                  ISCO {s.isco_code}
+            {analysis.skills.map((s, idx) => {
+              const pct =
+                typeof s.automation_probability === "number"
+                  ? Math.round(s.automation_probability * 100)
+                  : null;
+              const tone =
+                pct === null
+                  ? "bg-primary/10 text-primary"
+                  : pct >= 70
+                    ? "bg-destructive/10 text-destructive"
+                    : pct >= 40
+                      ? "bg-warning/10 text-warning"
+                      : "bg-success/10 text-success";
+              return (
+                <span
+                  key={`${s.isco_code}-${idx}`}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
+                  title={s.automation_source ? `${copy.sourceLabel}: ${s.automation_source}` : undefined}
+                >
+                  {s.name}
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold tracking-wide text-primary/80">
+                    ISCO {s.isco_code}
+                  </span>
+                  {pct !== null && (
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone}`}>
+                      🤖 {pct}%
+                    </span>
+                  )}
                 </span>
-              </span>
-            ))}
+              );
+            })}
           </div>
+          {analysis.signals?.automation?.source_short && (
+            <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Database className="h-3 w-3" />
+              <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
+              <span>{analysis.signals.automation.source_short}</span>
+            </p>
+          )}
         </Section>
 
         <Section
@@ -306,9 +358,15 @@ function ResultsContent({
         >
           <div className="mb-2 flex items-end justify-between">
             <span className="text-4xl font-bold text-foreground">{analysis.ai_score}%</span>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${riskMeta.className}`}>
-              {riskLabel}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold text-success">
+                <Database className="h-2.5 w-2.5" />
+                {copy.realDataBadge}
+              </span>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${riskMeta.className}`}>
+                {riskLabel}
+              </span>
+            </div>
           </div>
           <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
             <motion.div
@@ -339,9 +397,18 @@ function ResultsContent({
                     {j.match_percent}%
                   </span>
                 </div>
-                <div className="mb-3 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Coins className="h-3.5 w-3.5" />
-                  {j.local_wage} {copy.perMonth}
+                <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Coins className="h-3.5 w-3.5" />
+                    {j.local_wage} {copy.perMonth}
+                  </span>
+                  {j.wage_source && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px]">
+                      <Database className="h-2.5 w-2.5" />
+                      {copy.sourceLabel}: {j.wage_source}
+                      {j.wage_year ? ` (${j.wage_year})` : ""}
+                    </span>
+                  )}
                 </div>
 
                 {j.listings && j.listings.length > 0 && (
@@ -385,6 +452,49 @@ function ResultsContent({
               </div>
             ))}
           </div>
+        </Section>
+
+        {analysis.signals?.education_trend && (
+          <Section
+            icon={<BookOpen className="h-4 w-4" />}
+            title={copy.educationTrendTitle}
+            subtitle={analysis.signals.education_trend.source_short}
+          >
+            <div className="mb-3 flex items-end gap-3">
+              <div className="flex-1">
+                <div className="text-xs text-muted-foreground">2025</div>
+                <div className="text-2xl font-bold">{analysis.signals.education_trend.share_2025_pct}%</div>
+              </div>
+              <div className="text-2xl text-muted-foreground">→</div>
+              <div className="flex-1">
+                <div className="text-xs text-muted-foreground">2035</div>
+                <div className="text-2xl font-bold text-primary">{analysis.signals.education_trend.share_2035_pct}%</div>
+              </div>
+              <span className="rounded-full bg-primary/15 px-2 py-1 text-xs font-bold text-primary">
+                +{analysis.signals.education_trend.delta_pct} pts
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {copy.educationTrendBody(
+                analysis.signals.education_trend.share_2025_pct,
+                analysis.signals.education_trend.share_2035_pct,
+                country,
+              )}
+            </p>
+            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Database className="h-3 w-3" />
+              <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
+              <span>{analysis.signals.education_trend.source}</span>
+            </p>
+          </Section>
+        )}
+
+        <Section
+          icon={<Info className="h-4 w-4" />}
+          title={copy.honestLimitsTitle}
+          subtitle=""
+        >
+          <p className="text-xs leading-relaxed text-muted-foreground">{copy.honestLimitsBody}</p>
         </Section>
       </motion.div>
 

@@ -414,6 +414,7 @@ function ChatScreen() {
           ai_score: aiData.ai_risk_score,
           risk_level: aiData.ai_risk_level,
           jobs: aiData.opportunities,
+          signals: aiData.signals ?? {},
         })
         .select()
         .single();
