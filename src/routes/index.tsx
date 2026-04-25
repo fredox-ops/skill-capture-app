@@ -78,9 +78,15 @@ function ChatScreen() {
   const { profile } = useProfile();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [step, setStep] = useState<AnalyzeStep>("idle");
+  const [analyzeAttempt, setAnalyzeAttempt] = useState(0);
   const analyzing = step !== "idle";
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [replying, setReplying] = useState(false);
+  // Text fallback — revealed automatically when the mic is unavailable
+  // (unsupported browser or recognition error like "network"). The user
+  // can also tap "Type instead" to open it manually.
+  const [showTextInput, setShowTextInput] = useState(false);
+  const [typedMessage, setTypedMessage] = useState("");
 
   const profileLang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
 
