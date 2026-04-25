@@ -11,10 +11,16 @@ interface Skill {
   name: string;
   isco_code: string;
 }
+interface Listing {
+  title: string;
+  url: string;
+  snippet?: string;
+}
 interface Opportunity {
   job_title: string;
   match_percent: number;
   local_wage: string;
+  listings?: Listing[];
 }
 type RiskLevel = "Low Risk" | "Medium Risk" | "High Risk";
 
