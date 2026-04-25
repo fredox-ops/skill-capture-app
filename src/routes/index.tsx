@@ -80,6 +80,13 @@ function ChatScreen() {
   const { user, loading: authLoading } = useAuth();
   const { profile } = useProfile();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Voice-first onboarding gate. Shown the very first time a signed-in
+  // user lands on the chat — captures country/language by voice and is
+  // then dismissed forever (tracked in localStorage).
+  const [onboarding, setOnboarding] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("sawtnet-onboarded") !== "1";
+  });
   const [step, setStep] = useState<AnalyzeStep>("idle");
   const [analyzeAttempt, setAnalyzeAttempt] = useState(0);
   const analyzing = step !== "idle";
