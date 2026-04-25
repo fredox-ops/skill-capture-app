@@ -209,4 +209,34 @@
     0% { transform: scale(1); opacity: 0.5; }
     100% { transform: scale(2.4); opacity: 0; }
   }
+
+  /* Audio wave indicator — animated next to a bot bubble while TTS is speaking */
+  .audio-bar {
+    display: inline-block;
+    width: 3px;
+    height: 100%;
+    background: var(--primary);
+    border-radius: 2px;
+    transform-origin: bottom;
+    animation: audio-wave 0.9s ease-in-out infinite;
+  }
+  .audio-bar-1 { animation-delay: 0s; }
+  .audio-bar-2 { animation-delay: 0.15s; }
+  .audio-bar-3 { animation-delay: 0.3s; }
+
+  @keyframes audio-wave {
+    0%, 100% { transform: scaleY(0.35); }
+    50%      { transform: scaleY(1); }
+  }
+
+  /* Gentle pulse for the active "Analyze My Skills" FAB */
+  .fab-pulse {
+    box-shadow: var(--shadow-mic), 0 0 0 0 oklch(0.58 0.18 250 / 0.55);
+    animation: fab-pulse 2.2s ease-out infinite;
+  }
+  @keyframes fab-pulse {
+    0%   { box-shadow: var(--shadow-mic), 0 0 0 0   oklch(0.58 0.18 250 / 0.55); }
+    70%  { box-shadow: var(--shadow-mic), 0 0 0 16px oklch(0.58 0.18 250 / 0); }
+    100% { box-shadow: var(--shadow-mic), 0 0 0 0   oklch(0.58 0.18 250 / 0); }
+  }
 }
