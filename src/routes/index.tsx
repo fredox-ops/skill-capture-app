@@ -10,6 +10,7 @@ import {
   Square,
   Volume2,
   VolumeX,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileShell } from "@/components/MobileShell";
@@ -396,6 +397,20 @@ function ChatScreen() {
                         <AudioWave />
                         <span>Speaking…</span>
                       </span>
+                    )}
+                    {!isUser && !isSpeaking && tts.supported && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          tts.unlock();
+                          tts.speak(b.text, b.speechLang ?? lang, b.id);
+                        }}
+                        className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-primary/80 hover:text-primary"
+                        aria-label="Play reply audio"
+                      >
+                        <Play className="h-3 w-3" />
+                        <span>{tts.muted ? "Unmute & play" : "Play audio"}</span>
+                      </button>
                     )}
                   </div>
                 </motion.div>
