@@ -110,13 +110,24 @@ function ChatScreen() {
   const questionIndexRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const [bubbles, setBubbles] = useState<Bubble[]>(() => [
-    { id: 1, from: "bot", text: GREETING_AR },
-  ]);
-
   const lang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
   const { supported, listening, transcript, interim, error, start, stop, reset } =
     useSpeechRecognition(lang);
+
+  const [bubbles, setBubbles] = useState<Bubble[]>(() => [
+    { id: 1, from: "bot", text: GREETINGS[lang] },
+  ]);
+
+  // Keep the initial greeting in sync if the user changes language in Settings
+  // before sending any message.
+  useEffect(() => {
+    setBubbles((b) => {
+      if (b.length === 1 && b[0].from === "bot") {
+        return [{ id: 1, from: "bot", text: GREETINGS[lang] }];
+      }
+      return b;
+    });
+  }, [lang]);
 
   const tts = useSpeech();
 
@@ -127,9 +138,9 @@ function ChatScreen() {
     if (!tts.supported || tts.muted) return;
     greetedRef.current = true;
     // Slight delay so voices have a chance to load on first paint.
-    const t = setTimeout(() => tts.speak(GREETING_AR, "ar-MA", 1), 400);
+    const t = setTimeout(() => tts.speak(GREETINGS[lang], lang, 1), 400);
     return () => clearTimeout(t);
-  }, [tts]);
+  }, [tts, lang]);
 
   // Auto-scroll to the newest bubble whenever messages or live transcript change.
   useEffect(() => {
@@ -167,15 +178,16 @@ function ChatScreen() {
     const userBubbleId = Date.now();
     setBubbles((b) => [...b, { id: userBubbleId, from: "user", text }]);
 
-    // Pick the next mock follow-up question and push it as a bot bubble.
-    const idx = questionIndexRef.current % FOLLOW_UP_QUESTIONS_AR.length;
+    // Pick the next mock follow-up question in the user's language.
+    const followUps = FOLLOW_UPS[lang];
+    const idx = questionIndexRef.current % followUps.length;
     questionIndexRef.current += 1;
-    const followUp = FOLLOW_UP_QUESTIONS_AR[idx];
+    const followUp = followUps[idx];
     const botBubbleId = userBubbleId + 1;
 
     window.setTimeout(() => {
       setBubbles((b) => [...b, { id: botBubbleId, from: "bot", text: followUp }]);
-      tts.speak(followUp, "ar-MA", botBubbleId);
+      tts.speak(followUp, lang, botBubbleId);
     }, 650);
   };
 
