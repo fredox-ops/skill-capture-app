@@ -278,6 +278,27 @@ function ResultsContent({
   const [cvOpen, setCvOpen] = useState(false);
   const [applyJob, setApplyJob] = useState<Opportunity | null>(null);
 
+  // Client-side enrichment: every skill / job is decorated with the local
+  // econometric lookup so that even if the edge function returned partial
+  // signals (slow network, cold start, missing ISCO mapping) the UI still
+  // shows real Frey-Osborne probabilities and ILOSTAT wages.
+  const enrichedSkills: Skill[] = analysis.skills.map((s) => {
+    if (typeof s.automation_probability === "number") return s;
+    const a = lookupAutomation(s.isco_code);
+    return { ...s, automation_probability: a.probability, automation_source: a.source };
+  });
+  const enrichedJobs: Opportunity[] = analysis.jobs.map((j) => {
+    const needsWage = !j.local_wage || j.local_wage === "—";
+    if (!needsWage && j.wage_source) return j;
+    const w = lookupWage(j.isco_code);
+    return {
+      ...j,
+      local_wage: needsWage ? w.formatted : j.local_wage,
+      wage_source: j.wage_source ?? w.source,
+      wage_year: j.wage_year ?? w.year,
+    };
+  });
+
   // Defensive: tolerate legacy rows where risk_level isn't one of the new strings
   const riskKey: RiskLevel = (
     analysis.risk_level === "Low Risk" ||
@@ -292,6 +313,20 @@ function ResultsContent({
   ) as RiskLevel;
   const riskMeta = RISK_META[riskKey];
   const riskLabel = copy.risk[riskMeta.key];
+
+  // Education trend: prefer server-provided per-country signal, else fall
+  // back to the bundled Wittgenstein projection so the card always renders.
+  const eduTrend = analysis.signals?.education_trend;
+  const eduFallback = !eduTrend
+    ? {
+        share_2025_pct: wittgensteinProjections.share2025Pct,
+        share_2035_pct: wittgensteinProjections.share2035Pct,
+        delta_pct: wittgensteinProjections.deltaPct,
+        source: wittgensteinProjections.source,
+        source_short: wittgensteinProjections.source,
+      }
+    : null;
+  const edu = eduTrend ?? eduFallback;
 
   return (
     <>
