@@ -165,13 +165,22 @@ function ChatScreen() {
               <p className="text-xs text-success">● online</p>
             </div>
           </div>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Settings"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
-          >
-            <Settings className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/history"
+              aria-label="History"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
+            >
+              <HistoryIcon className="h-5 w-5" />
+            </Link>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Settings"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -216,18 +225,25 @@ function ChatScreen() {
         <div className="mx-auto w-full max-w-3xl px-5 pb-6 pt-4 sm:px-8">
           <AnimatePresence mode="wait">
             {lastUserMessage && !listening ? (
-              <motion.button
+              <motion.div
                 key="analyze"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                onClick={startAnalysis}
-                disabled={analyzing}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground shadow-[var(--shadow-mic)] active:scale-[0.98] disabled:opacity-70"
+                className="flex flex-col items-center gap-2"
               >
-                <Sparkles className={`h-5 w-5 ${analyzing ? "animate-spin" : ""}`} />
-                {analyzing ? "Analyzing your skills…" : "Analyze My Skills"}
-              </motion.button>
+                <button
+                  onClick={startAnalysis}
+                  disabled={analyzing}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground shadow-[var(--shadow-mic)] active:scale-[0.98] disabled:opacity-70"
+                >
+                  <Sparkles className={`h-5 w-5 ${analyzing ? "animate-spin" : ""}`} />
+                  {analyzing ? "Analyzing your skills…" : "Analyze My Skills"}
+                </button>
+                {analyzing && (
+                  <p className="text-xs text-muted-foreground">{stepLabel[step]}</p>
+                )}
+              </motion.div>
             ) : (
               <motion.div
                 key="mic"
