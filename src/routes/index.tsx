@@ -5,6 +5,7 @@ import {
   History as HistoryIcon,
   Mic,
   MicOff,
+  Send,
   Settings,
   Sparkles,
   Square,
