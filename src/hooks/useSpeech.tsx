@@ -41,8 +41,6 @@ export function useSpeech() {
   const unlockedRef = useRef(false);
   // Cache base64 audio per text so replaying a bubble doesn't re-call the API.
   const cacheRef = useRef<Map<string, { audio: string; mime: string }>>(new Map());
-  // Once we know the cloud TTS isn't available, skip future cloud calls.
-  const cloudUnavailableRef = useRef(false);
 
   // Warm up voices list (some browsers populate it asynchronously).
   useEffect(() => {
@@ -132,43 +130,37 @@ export function useSpeech() {
       audioRef.current = null;
       window.speechSynthesis?.cancel();
 
-      // Try cloud TTS unless we already know it's not available.
-      if (!cloudUnavailableRef.current) {
-        try {
-          let cached = cacheRef.current.get(text);
-          if (!cached) {
-            const { data, error } = await supabase.functions.invoke("tts", {
-              body: { text, lang },
-            });
-            if (error) throw error;
-            if (data?.fallback) {
-              cloudUnavailableRef.current = true;
-              speakBrowser(text, lang, id);
-              return;
-            }
-            if (!data?.audio) throw new Error(data?.error ?? "No audio returned");
-            cached = {
-              audio: data.audio as string,
-              mime: (data.mime as string) ?? "audio/mpeg",
-            };
-            cacheRef.current.set(text, cached);
+      // Try cloud TTS first; on failure for this phrase, fall back to browser TTS.
+      try {
+        let cached = cacheRef.current.get(`${lang}::${text}`);
+        if (!cached) {
+          const { data, error } = await supabase.functions.invoke("tts", {
+            body: { text, lang },
+          });
+          if (error) throw error;
+          if (data?.fallback) {
+            speakBrowser(text, lang, id);
+            return;
           }
-
-          const audio = new Audio(`data:${cached.mime};base64,${cached.audio}`);
-          audioRef.current = audio;
-          audio.onplay = () => setSpeakingId(id);
-          audio.onended = () => setSpeakingId((curr) => (curr === id ? null : curr));
-          audio.onerror = () => setSpeakingId((curr) => (curr === id ? null : curr));
-          await audio.play();
-          return;
-        } catch (err) {
-          console.warn("[tts] cloud failed, falling back to browser TTS", err);
-          cloudUnavailableRef.current = true;
+          if (!data?.audio) throw new Error(data?.error ?? "No audio returned");
+          cached = {
+            audio: data.audio as string,
+            mime: (data.mime as string) ?? "audio/mpeg",
+          };
+          cacheRef.current.set(`${lang}::${text}`, cached);
         }
-      }
 
-      // Fallback: browser native TTS.
-      speakBrowser(text, lang, id);
+        const audio = new Audio(`data:${cached.mime};base64,${cached.audio}`);
+        audioRef.current = audio;
+        audio.onplay = () => setSpeakingId(id);
+        audio.onended = () => setSpeakingId((curr) => (curr === id ? null : curr));
+        audio.onerror = () => setSpeakingId((curr) => (curr === id ? null : curr));
+        await audio.play();
+        return;
+      } catch (err) {
+        console.warn("[tts] cloud failed for this phrase, using browser TTS", err);
+        speakBrowser(text, lang, id);
+      }
     },
     [muted, speakBrowser],
   );
