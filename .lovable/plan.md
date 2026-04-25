@@ -1,97 +1,97 @@
-# Migrate Sawt-Net to your own Supabase project
+# Sawt-Net hackathon flow — final wiring
 
-## Goal
-Switch the app from Lovable Cloud's managed Supabase to **your own Supabase project** so you get full dashboard access (SQL editor, Auth providers, Logs, Storage UI, etc.). Keep the Lovable AI Gateway for the `analyze-skills` function (no key changes needed).
+Most of the stack you asked for is already built and working on **Lovable Cloud** (no migration needed):
 
-## Important context (please read)
-- **Lovable Cloud cannot be disabled** once enabled. After we switch, the Cloud-managed Supabase project will remain provisioned but unused. No data lives there that you care about (test data only).
-- The recommended path is the **official Supabase Connector** (Connectors → Supabase). This rewires Lovable's auto-generated client/types to your project and lets future schema migrations run against your database.
-- Once switched, **all future migrations, edge function deploys, and auth config will go to your Supabase project, not Lovable Cloud.**
+✅ Tables `profiles`, `voice_sessions`, `analyses` exist with full RLS (`auth.uid() = user_id` on every operation)
+✅ `handle_new_user()` trigger auto-creates a profile on signup
+✅ Web Speech API capture (`src/hooks/useSpeechRecognition.tsx`) + transcript saved to `voice_sessions`
+✅ Edge function `analyze-skills` deployed, JWT-protected, calls Lovable AI Gateway
+✅ Email/password + Google login wired (`src/routes/login.tsx`)
+✅ Loading state on the "Analyze My Skills" button
 
----
+**What's actually missing vs your spec:**
 
-## Step 1 — Connect your Supabase project (you do this part)
-You'll be guided through Connectors → Supabase. You'll need to provide:
-1. **Project URL** (e.g. `https://xxxx.supabase.co`)
-2. **Anon / publishable key**
-3. **Service role key** (for server functions and admin operations)
-
-After connecting, Lovable will:
-- Update `.env` with your `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`
-- Regenerate `src/integrations/supabase/client.ts` and `types.ts` against your project
-- Route the existing `requireSupabaseAuth` middleware and `supabaseAdmin` client to your project
-
-No code changes from me are needed for the wiring itself — it's automatic.
-
-## Step 2 — Recreate the database schema in your project
-Your Supabase project starts empty. I'll generate a single SQL migration that recreates everything currently on Lovable Cloud:
-
-**Tables**
-- `profiles` (user_id, display_name, country [default 'Morocco'], language [default 'English'], avatar_url, timestamps)
-- `voice_sessions` (user_id, transcript, language, created_at)
-- `analyses` (user_id, session_id, skills jsonb, ai_score, risk_level, jobs jsonb, created_at)
-
-**RLS policies** (identical to current — users can only access their own rows)
-- SELECT / INSERT / UPDATE / DELETE policies on each table scoped by `auth.uid() = user_id`
-
-**Functions + triggers**
-- `update_updated_at_column()` trigger function
-- `handle_new_user()` SECURITY DEFINER function that auto-inserts a profile row on signup
-- Trigger on `auth.users` AFTER INSERT → `handle_new_user()`
-
-This will run via the migration tool against your Supabase project.
-
-## Step 3 — Configure authentication in your Supabase dashboard
-Things you'll need to set up manually in **your** Supabase dashboard (I can't do these for you because they require dashboard access):
-
-1. **Auth → URL Configuration**
-   - Site URL: your Lovable preview/production URL
-   - Redirect URLs: add the same URL(s)
-
-2. **Auth → Providers → Email**
-   - Decide whether to require email confirmation (currently off in Cloud — flip on if you want verified emails)
-
-3. **Auth → Providers → Google** (if you want Google sign-in to keep working)
-   - Create OAuth credentials in Google Cloud Console
-   - Paste Client ID + Secret into Supabase
-   - Add the Supabase callback URL to Google Console authorized redirects
-
-I'll give you exact URLs and a checklist when we get to this step.
-
-## Step 4 — Deploy the `analyze-skills` edge function to your project
-The function code stays identical. It needs:
-- `LOVABLE_API_KEY` secret in your Supabase project (for the Lovable AI Gateway)
-- `verify_jwt = true` (already in `supabase/config.toml`)
-
-I'll deploy it to your Supabase project and you'll add the `LOVABLE_API_KEY` secret in your Supabase dashboard under **Edge Functions → Secrets**. I'll provide the key value to paste.
-
-## Step 5 — Smoke test end-to-end
-After everything is wired:
-1. Sign up with a new email → confirm a row appears in `profiles` (proves the trigger works)
-2. Sign in, record a voice transcript → confirm a row in `voice_sessions`
-3. Run "Analyze Skills" → confirm a row in `analyses` and dashboard renders
-4. Sign in with Google (if configured)
-
-I'll guide you through each check and fix any RLS / redirect / CORS issues that surface.
+1. The edge function returns the wrong JSON shape. You want `{skills:[{name,isco_code}], ai_risk_score, ai_risk_level, opportunities:[{job_title,match_percent,local_wage}]}` — currently it returns `{skills:string[], ai_score, risk_level, jobs:[{title,match,salary}]}`.
+2. The Results dashboard reads the old shape and must be updated to the new one (skills become chips with ISCO-08 codes underneath, etc.).
+3. No "history" view — users can only see one analysis at a time via URL. Adding a `/history` list of past analyses gives the hackathon judges proof of persistence on reload.
 
 ---
 
-## What does NOT change
-- All frontend code (routes, components, hooks) stays the same
-- `useAuth`, `useProfile`, `useSpeechRecognition` keep working as-is
-- Tailwind / design system / mobile shell unchanged
-- The `analyze-skills` function code is unchanged
+## Plan
 
-## What you'll need ready before approving
-- ✅ Your Supabase Project URL
-- ✅ Anon (publishable) key
-- ✅ Service role key
-- ✅ (Optional) Google OAuth Client ID + Secret if you want to keep Google sign-in
+### 1. Edge function: lock the new structured JSON shape (`supabase/functions/analyze-skills/index.ts`)
+Update the AI tool-calling schema and system prompt so the function returns **exactly** the format you specified:
 
-## Risks / things to know
-- **One-way switch in practice**: After switching, the app talks only to your Supabase project. Lovable Cloud data won't be reachable from the app (no loss since it's empty).
-- **Google sign-in will break temporarily** until you reconfigure OAuth credentials in your project.
-- **Existing Lovable Cloud users (if any) won't transfer.** Since you only have test users, this is fine — you'll re-sign-up in the new project.
-- Email templates in your Supabase project will use Supabase defaults unless you customize them.
+```json
+{
+  "skills": [{"name": "Hardware Repair", "isco_code": "7422"}],
+  "ai_risk_score": 45,
+  "ai_risk_level": "Medium Risk",
+  "opportunities": [
+    {"job_title": "IT Support Technician", "match_percent": 85, "local_wage": "4500 MAD"}
+  ]
+}
+```
 
-Ready to proceed? Once you approve, I'll prompt you for the Supabase connection in the next step.
+- Tool schema: `skills` becomes array of objects with `name` (string) + `isco_code` (4-digit string), `ai_risk_score` (0–100), `ai_risk_level` enum (`"Low Risk"|"Medium Risk"|"High Risk"`), `opportunities` array of 3 with `job_title`, `match_percent` (60–95), `local_wage` (string with local currency — MAD for Morocco, INR for India).
+- System prompt updated: explicitly mention ISCO-08 4-digit codes, local currency wages, and the risk-level mapping (>=70 Low, 40–69 Medium, <40 High).
+- Keep current error handling (429 / 402 / fallback messages) and `verify_jwt = true`.
+
+### 2. Persist the new shape (no schema change)
+The `analyses` table stores `skills` and `jobs` as **`jsonb`** and `ai_score` as `integer` / `risk_level` as `text` — flexible enough that we don't need a migration. We'll just store:
+- `skills` ← `result.skills` (array of `{name, isco_code}`)
+- `ai_score` ← `result.ai_risk_score`
+- `risk_level` ← `result.ai_risk_level` ("Low Risk" / "Medium Risk" / "High Risk")
+- `jobs` ← `result.opportunities`
+
+Update `src/routes/index.tsx` `startAnalysis` to map the new field names into the insert.
+
+### 3. Results dashboard refactor (`src/routes/results.tsx`)
+- Update the `Analysis` TypeScript type to the new shape.
+- **Skills card**: each chip now shows the skill name with the ISCO-08 code as a small subscript (e.g. "Hardware Repair · ISCO-08 7422"). Reinforces the "real econometric engine" framing for judges.
+- **AI Readiness card**: read `ai_risk_score` (0–100) and map `ai_risk_level` strings to color (Low → success green, Medium → warning amber, High → destructive red). Same animated progress bar.
+- **Opportunities card**: render `job_title`, `match_percent`, `local_wage` (already includes currency, so no "/ month" suffix needed — it'll come from the AI).
+- Skeleton + EmptyState unchanged.
+
+### 4. Auth + History — visible past-analyses list
+You said "the user should be able to see their past analyses if they reload the page". To make this rock-solid for the demo:
+
+- **Already covered**: `/results?id=xxx` reloads any specific analysis (RLS guarantees only that user can read it).
+- **New**: add a **History** view at `/history` (route file `src/routes/history.tsx`):
+  - Fetches all `analyses` for the current user, ordered by `created_at desc`.
+  - Each row shows date, top 2–3 skills, and the AI risk score badge.
+  - Clicking a row navigates to `/results?id=xxx` to see the full dashboard.
+  - Auth-guarded the same way as `/` and `/results` (redirect to `/login` if no session).
+- **Entry point**: add a "History" button in the chat header (next to Settings) and a small "View past analyses" link on the empty Results state.
+
+### 5. Loading-state polish (already partially there)
+- Chat screen "Analyze My Skills" button already shows a spinning sparkle + "Analyzing your skills…" while the edge function runs. Keep it.
+- Add a tiny "Saving transcript…" → "Calling AI…" → "Saving results…" sub-text under the button so judges *see* the multi-step backend work happening. Pure UX polish, no backend change.
+
+---
+
+## Files I'll touch
+
+| File | Change |
+|---|---|
+| `supabase/functions/analyze-skills/index.ts` | New tool schema + prompt for ISCO-08 / risk_level / opportunities |
+| `src/routes/index.tsx` | Map new edge-function field names into `analyses` insert; multi-step loading sub-text; History button in header |
+| `src/routes/results.tsx` | New `Analysis` type; skills with ISCO codes; risk-level color mapping; updated opportunity card fields |
+| `src/routes/history.tsx` | **NEW** — list of past analyses, auth-guarded, links to `/results?id=...` |
+
+## What I will NOT change
+- Database schema (no migration needed — `jsonb` columns are flexible)
+- RLS policies (already correct)
+- Auth flow (login.tsx, useAuth, useProfile — all working)
+- `useSpeechRecognition` hook
+- MobileShell / SettingsModal / styles
+
+## Smoke test after build
+1. Sign in (or use the already-signed-in account from your replay logs).
+2. Tap mic → speak ~10s of skills (e.g. "I fix phones and motorcycle engines, and I tutor kids in math").
+3. Tap "Analyze My Skills" → watch the multi-step loading text → land on Results dashboard.
+4. Verify chips show ISCO-08 codes, risk score animates, 3 opportunities render with local wages.
+5. Tap History → see the new analysis at the top → tap it → reload → still there.
+6. Sign out, sign back in → History still shows it (proves RLS persistence).
+
+Ready to build when you approve.
