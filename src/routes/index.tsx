@@ -183,18 +183,15 @@ function ChatScreen() {
   const userMessageCount = bubbles.filter((b) => b.from === "user").length;
   const canAnalyze = userMessageCount >= MIN_USER_MESSAGES_TO_ANALYZE && !analyzing;
 
-  const stopAndPush = async () => {
-    stop();
-    const text = transcript.trim();
-    if (!text) {
-      reset();
-      return;
-    }
+  // Send a user message (whether typed or spoken) through the chat-followup
+  // edge function. Shared by the mic handler and the text fallback.
+  const sendUserMessage = async (rawText: string) => {
+    const text = rawText.trim();
+    if (!text) return;
 
     const userBubble: Bubble = { id: Date.now(), from: "user", text, speechLang: lang };
     const conversation = [...bubbles, userBubble];
     setBubbles(conversation);
-    reset();
     setReplying(true);
 
     try {
@@ -243,6 +240,22 @@ function ChatScreen() {
     } finally {
       setReplying(false);
     }
+  };
+
+  const stopAndPush = async () => {
+    stop();
+    const text = transcript.trim();
+    reset();
+    if (!text) return;
+    await sendUserMessage(text);
+  };
+
+  const handleSendTyped = async () => {
+    const text = typedMessage.trim();
+    if (!text || replying || analyzing) return;
+    setTypedMessage("");
+    tts.unlock();
+    await sendUserMessage(text);
   };
 
   // ---- Press-and-hold mic handlers ----------------------------------------
