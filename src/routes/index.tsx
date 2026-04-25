@@ -1,9 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Settings, Sparkles, Square } from "lucide-react";
+import { Mic, Settings, Sparkles, Square, MicOff } from "lucide-react";
+import { toast } from "sonner";
 import { MobileShell } from "@/components/MobileShell";
 import { SettingsModal } from "@/components/SettingsModal";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { useSpeechRecognition, getRecognitionLang } from "@/hooks/useSpeechRecognition";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -21,15 +26,12 @@ interface Bubble {
   text: string;
 }
 
-const SAMPLE_TRANSCRIPT =
-  "I fix water pipes, install electrical sockets, and I help customers in my neighborhood every day.";
-
 function ChatScreen() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  const { profile } = useProfile();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const [hasSpoken, setHasSpoken] = useState(false);
-  const [liveText, setLiveText] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
   const [bubbles, setBubbles] = useState<Bubble[]>([
     {
       id: 1,
@@ -38,40 +40,104 @@ function ChatScreen() {
     },
   ]);
 
-  // Simulate live speech-to-text
-  useEffect(() => {
-    if (!recording) return;
-    let i = 0;
-    setLiveText("");
-    const interval = setInterval(() => {
-      i += 2;
-      setLiveText(SAMPLE_TRANSCRIPT.slice(0, i));
-      if (i >= SAMPLE_TRANSCRIPT.length) clearInterval(interval);
-    }, 60);
-    return () => clearInterval(interval);
-  }, [recording]);
+  const lang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
+  const { supported, listening, transcript, interim, error, start, stop, reset } =
+    useSpeechRecognition(lang);
 
-  const stopRecording = () => {
-    setRecording(false);
-    const text = liveText || SAMPLE_TRANSCRIPT;
+  // Redirect if not signed in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate({ to: "/login" });
+    }
+  }, [user, authLoading, navigate]);
+
+  // Show error toast
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
+
+  const stopAndPush = () => {
+    stop();
+    const text = transcript.trim();
+    if (!text) {
+      toast.error("I didn't catch that. Try again.");
+      reset();
+      return;
+    }
     setBubbles((b) => [...b, { id: Date.now(), from: "user", text }]);
-    setLiveText("");
-    setHasSpoken(true);
     setTimeout(() => {
       setBubbles((b) => [
         ...b,
         {
           id: Date.now() + 1,
           from: "bot",
-          text: "Got it! I heard real, valuable skills. Ready to analyze them?",
+          text: "Got it! Ready to analyze these skills?",
         },
       ]);
-    }, 600);
+    }, 400);
   };
 
-  const startAnalysis = () => {
-    navigate({ to: "/results" });
+  const lastUserMessage = [...bubbles].reverse().find((b) => b.from === "user")?.text;
+
+  const startAnalysis = async () => {
+    if (!lastUserMessage || !user) return;
+    setAnalyzing(true);
+    try {
+      // Save the voice session
+      const { data: session, error: sessionErr } = await supabase
+        .from("voice_sessions")
+        .insert({
+          user_id: user.id,
+          transcript: lastUserMessage,
+          language: lang,
+        })
+        .select()
+        .single();
+      if (sessionErr) throw sessionErr;
+
+      // Call analyze-skills edge function
+      const { data, error: fnErr } = await supabase.functions.invoke("analyze-skills", {
+        body: {
+          transcript: lastUserMessage,
+          country: profile?.country ?? "Morocco",
+          language: profile?.language ?? "English",
+        },
+      });
+      if (fnErr) throw fnErr;
+      if (data?.error) throw new Error(data.error);
+
+      // Save the analysis
+      const { data: analysis, error: aErr } = await supabase
+        .from("analyses")
+        .insert({
+          user_id: user.id,
+          session_id: session.id,
+          skills: data.skills,
+          ai_score: data.ai_score,
+          risk_level: data.risk_level,
+          jobs: data.jobs,
+        })
+        .select()
+        .single();
+      if (aErr) throw aErr;
+
+      navigate({ to: "/results", search: { id: analysis.id } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Analysis failed";
+      toast.error(msg);
+      setAnalyzing(false);
+    }
   };
+
+  if (authLoading) {
+    return (
+      <MobileShell>
+        <div className="flex flex-1 items-center justify-center">
+          <Sparkles className="h-8 w-8 animate-pulse text-primary" />
+        </div>
+      </MobileShell>
+    );
+  }
 
   return (
     <MobileShell>
@@ -117,10 +183,11 @@ function ChatScreen() {
             </motion.div>
           ))}
 
-          {recording && liveText && (
+          {listening && (transcript || interim) && (
             <div className="flex justify-end">
-              <div className="max-w-[80%] rounded-2xl rounded-br-md bg-bubble-user/70 px-4 py-2.5 text-[15px] text-bubble-user-foreground italic shadow-sm">
-                {liveText}
+              <div className="max-w-[80%] rounded-2xl rounded-br-md bg-bubble-user/70 px-4 py-2.5 text-[15px] text-bubble-user-foreground shadow-sm">
+                {transcript}
+                {interim && <span className="italic opacity-80"> {interim}</span>}
                 <span className="ml-1 inline-block h-3 w-0.5 animate-pulse bg-white" />
               </div>
             </div>
@@ -131,17 +198,18 @@ function ChatScreen() {
       {/* Bottom action area */}
       <div className="border-t border-border bg-card px-5 pb-6 pt-4">
         <AnimatePresence mode="wait">
-          {hasSpoken && !recording ? (
+          {lastUserMessage && !listening ? (
             <motion.button
               key="analyze"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               onClick={startAnalysis}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground shadow-[var(--shadow-mic)] active:scale-[0.98]"
+              disabled={analyzing}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground shadow-[var(--shadow-mic)] active:scale-[0.98] disabled:opacity-70"
             >
-              <Sparkles className="h-5 w-5" />
-              Analyze My Skills
+              <Sparkles className={`h-5 w-5 ${analyzing ? "animate-spin" : ""}`} />
+              {analyzing ? "Analyzing your skills…" : "Analyze My Skills"}
             </motion.button>
           ) : (
             <motion.div
@@ -152,7 +220,7 @@ function ChatScreen() {
               className="flex flex-col items-center gap-2"
             >
               <div className="relative flex h-20 w-20 items-center justify-center">
-                {recording && (
+                {listening && (
                   <>
                     <span className="ripple" />
                     <span className="ripple delay-1" />
@@ -160,15 +228,26 @@ function ChatScreen() {
                   </>
                 )}
                 <button
-                  onClick={() => (recording ? stopRecording() : setRecording(true))}
-                  aria-label={recording ? "Stop recording" : "Start recording"}
-                  className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] active:scale-95 transition-transform"
+                  onClick={() => (listening ? stopAndPush() : start())}
+                  disabled={!supported}
+                  aria-label={listening ? "Stop recording" : "Start recording"}
+                  className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] active:scale-95 transition-transform disabled:opacity-50"
                 >
-                  {recording ? <Square className="h-7 w-7 fill-current" /> : <Mic className="h-8 w-8" />}
+                  {!supported ? (
+                    <MicOff className="h-8 w-8" />
+                  ) : listening ? (
+                    <Square className="h-7 w-7 fill-current" />
+                  ) : (
+                    <Mic className="h-8 w-8" />
+                  )}
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">
-                {recording ? "Listening… tap to stop" : "Tap and speak your skills"}
+                {!supported
+                  ? "Voice input not supported. Try Chrome."
+                  : listening
+                    ? "Listening… tap to stop"
+                    : "Tap and speak your skills"}
               </p>
             </motion.div>
           )}

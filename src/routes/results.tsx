@@ -1,10 +1,29 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Briefcase, Coins, ShieldAlert, TrendingUp } from "lucide-react";
+import { toast } from "sonner";
 import { MobileShell } from "@/components/MobileShell";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Job {
+  title: string;
+  match: number;
+  salary: string;
+}
+interface Analysis {
+  id: string;
+  skills: string[];
+  ai_score: number;
+  risk_level: "safe" | "medium" | "high";
+  jobs: Job[];
+}
 
 export const Route = createFileRoute("/results")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    id: typeof search.id === "string" ? search.id : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Your Skills Profile — Sawt-Net" },
@@ -14,21 +33,41 @@ export const Route = createFileRoute("/results")({
   component: ResultsScreen,
 });
 
-const SKILLS = ["Plumbing", "Electrical Repair", "Customer Service"];
-const AI_SCORE = 72;
-const JOBS = [
-  { title: "Maintenance Technician", match: 85, salary: "4000 MAD" },
-  { title: "Facility Assistant", match: 78, salary: "3500 MAD" },
-  { title: "Electrician Helper", match: 90, salary: "4200 MAD" },
-];
-
 function ResultsScreen() {
+  const { id } = Route.useSearch();
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 2200);
-    return () => clearTimeout(t);
-  }, []);
+    if (!authLoading && !user) {
+      navigate({ to: "/login" });
+    }
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchAnalysis = async () => {
+      let query = supabase
+        .from("analyses")
+        .select("id, skills, ai_score, risk_level, jobs")
+        .eq("user_id", user.id);
+      if (id) {
+        query = query.eq("id", id);
+      } else {
+        query = query.order("created_at", { ascending: false }).limit(1);
+      }
+      const { data, error } = await query.maybeSingle();
+      if (error) {
+        toast.error(error.message);
+      } else if (data) {
+        setAnalysis(data as unknown as Analysis);
+      }
+      setLoading(false);
+    };
+    fetchAnalysis();
+  }, [user, id]);
 
   return (
     <MobileShell>
@@ -47,7 +86,13 @@ function ResultsScreen() {
       </header>
 
       <div className="flex-1 overflow-y-auto bg-chat-bg px-4 py-5">
-        {loading ? <ResultsSkeleton /> : <ResultsContent />}
+        {loading ? (
+          <ResultsSkeleton />
+        ) : !analysis ? (
+          <EmptyState />
+        ) : (
+          <ResultsContent analysis={analysis} />
+        )}
       </div>
     </MobileShell>
   );
@@ -63,12 +108,32 @@ function ResultsSkeleton() {
           style={{ height: h }}
         />
       ))}
-      <p className="text-center text-sm text-muted-foreground">Analyzing your voice…</p>
+      <p className="text-center text-sm text-muted-foreground">Loading your analysis…</p>
     </div>
   );
 }
 
-function ResultsContent() {
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <p className="mb-4 text-sm text-muted-foreground">No analysis yet.</p>
+      <Link
+        to="/"
+        className="rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"
+      >
+        Record your first one
+      </Link>
+    </div>
+  );
+}
+
+function ResultsContent({ analysis }: { analysis: Analysis }) {
+  const riskMeta = {
+    safe: { label: "Safe — keep going", className: "bg-success/15 text-success" },
+    medium: { label: "Medium risk", className: "bg-warning/15 text-warning" },
+    high: { label: "High risk", className: "bg-destructive/15 text-destructive" },
+  }[analysis.risk_level];
+
   return (
     <motion.div
       initial="hidden"
@@ -76,10 +141,9 @@ function ResultsContent() {
       variants={{ show: { transition: { staggerChildren: 0.1 } } }}
       className="space-y-4"
     >
-      {/* Skills */}
       <Section icon={<TrendingUp className="h-4 w-4" />} title="Skills Profile" subtitle="ISCO-08 Standardized">
         <div className="flex flex-wrap gap-2">
-          {SKILLS.map((s) => (
+          {analysis.skills.map((s) => (
             <span
               key={s}
               className="rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
@@ -90,18 +154,17 @@ function ResultsContent() {
         </div>
       </Section>
 
-      {/* AI Score */}
       <Section icon={<ShieldAlert className="h-4 w-4" />} title="AI Readiness Score" subtitle="How safe your skills are from automation">
         <div className="mb-2 flex items-end justify-between">
-          <span className="text-4xl font-bold text-foreground">{AI_SCORE}%</span>
-          <span className="rounded-full bg-warning/15 px-3 py-1 text-xs font-semibold text-warning">
-            Medium risk
+          <span className="text-4xl font-bold text-foreground">{analysis.ai_score}%</span>
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${riskMeta.className}`}>
+            {riskMeta.label}
           </span>
         </div>
         <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
           <motion.div
             initial={{ width: 0 }}
-            animate={{ width: `${AI_SCORE}%` }}
+            animate={{ width: `${analysis.ai_score}%` }}
             transition={{ duration: 1.1, ease: "easeOut" }}
             className="h-full rounded-full"
             style={{
@@ -110,16 +173,15 @@ function ResultsContent() {
           />
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Hands-on skills like yours stay valuable — robots can't replace them yet.
+          Hands-on, interpersonal skills are hardest for AI to replace.
         </p>
       </Section>
 
-      {/* Jobs */}
-      <Section icon={<Briefcase className="h-4 w-4" />} title="Job Opportunities" subtitle={`${JOBS.length} matches near you`}>
+      <Section icon={<Briefcase className="h-4 w-4" />} title="Job Opportunities" subtitle={`${analysis.jobs.length} matches near you`}>
         <div className="space-y-3">
-          {JOBS.map((j) => (
+          {analysis.jobs.map((j, idx) => (
             <div
-              key={j.title}
+              key={`${j.title}-${idx}`}
               className="rounded-xl border border-border bg-background p-3"
             >
               <div className="mb-1.5 flex items-start justify-between gap-2">
