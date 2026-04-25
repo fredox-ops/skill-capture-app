@@ -2,18 +2,20 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  Check,
   History as HistoryIcon,
+  Loader2,
   Mic,
   MicOff,
-  Send,
   Settings,
   Sparkles,
   Square,
   Volume2,
   VolumeX,
   Play,
+  WifiOff,
 } from "lucide-react";
-import { toast } from "sonner";
+
 import { MobileShell } from "@/components/MobileShell";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AudioWave } from "@/components/AudioWave";
@@ -82,11 +84,13 @@ function ChatScreen() {
   const analyzing = step !== "idle";
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [replying, setReplying] = useState(false);
-  // Text fallback — revealed automatically when the mic is unavailable
-  // (unsupported browser or recognition error like "network"). The user
-  // can also tap "Type instead" to open it manually.
-  const [showTextInput, setShowTextInput] = useState(false);
-  const [typedMessage, setTypedMessage] = useState("");
+  // Transient mic state: when true, the mic button shows a no-wifi icon in
+  // a warning color and shakes briefly. Purely visual — no text required.
+  const [micWarning, setMicWarning] = useState(false);
+  // Severe (red) state — analyze failed completely after retries.
+  const [micError, setMicError] = useState(false);
+  // Brief green flash after a successful analysis save (right before navigate).
+  const [micSuccess, setMicSuccess] = useState(false);
 
   const profileLang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
 
@@ -161,19 +165,38 @@ function ChatScreen() {
     }
   }, [user, authLoading, navigate]);
 
-  // Show STT error toast — and reveal the text fallback so the user is never
-  // stuck if their connection or mic isn't cooperating.
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-      setShowTextInput(true);
-    }
-  }, [error]);
+  // Localised "weak network" voice messages, played automatically when the
+  // recognizer fails. No reading required — illiterate users hear what
+  // happened and see the mic flash orange + a no-wifi icon.
+  const NETWORK_ERROR_VOICE: Record<RecognitionLang, string> = {
+    "ar-MA": "شبكة الإنترنت ضعيفة. المرجو المحاولة مرة أخرى.",
+    "en-US": "Internet is weak. Please try again.",
+    "fr-FR": "La connexion est faible. Réessayez s'il vous plaît.",
+    "hi-IN": "इंटरनेट कमज़ोर है। कृपया दोबारा कोशिश करें।",
+  };
 
-  // If voice isn't supported at all, surface the text input from the start.
+  // Map the recognizer's machine-readable error code to a fully audio-visual
+  // response. We DO NOT show any text to the user.
   useEffect(() => {
-    if (!supported) setShowTextInput(true);
-  }, [supported]);
+    if (!error) return;
+    const isNetwork = error === "network";
+    setMicWarning(true);
+    // Speak the localised message so non-readers understand what's happening.
+    if (isNetwork) {
+      // Force-unmute briefly so the warning is always heard.
+      const wasMuted = tts.muted;
+      if (wasMuted) tts.toggleMute();
+      tts.speak(NETWORK_ERROR_VOICE[lang], lang, -1);
+      if (wasMuted) {
+        // Re-mute after the message would have finished (~3s).
+        setTimeout(() => tts.toggleMute(), 3500);
+      }
+    }
+    // Auto-clear the orange/shake state after 3.5s — the mic returns to normal.
+    const t = setTimeout(() => setMicWarning(false), 3500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error]);
 
   // Cancel any in-flight speech when the user starts talking again.
   useEffect(() => {
@@ -250,14 +273,6 @@ function ChatScreen() {
     await sendUserMessage(text);
   };
 
-  const handleSendTyped = async () => {
-    const text = typedMessage.trim();
-    if (!text || replying || analyzing) return;
-    setTypedMessage("");
-    tts.unlock();
-    await sendUserMessage(text);
-  };
-
   // ---- Press-and-hold mic handlers ----------------------------------------
   const handleHoldStart = (e: React.PointerEvent | React.KeyboardEvent) => {
     if (!supported || listening || analyzing || replying) return;
@@ -271,6 +286,37 @@ function ChatScreen() {
     stopAndPush();
   };
 
+  // Brief, friendly two-tone chime via Web Audio so the user gets an audible
+  // cue that the app is working in the background — useful when the screen
+  // animation alone might be missed.
+  const playThinkingChime = () => {
+    if (typeof window === "undefined") return;
+    try {
+      const Ctx = (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext);
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const now = ctx.currentTime;
+      const tone = (freq: number, start: number, dur: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, now + start);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now + start);
+        osc.stop(now + start + dur + 0.05);
+      };
+      tone(660, 0, 0.18);
+      tone(880, 0.16, 0.22);
+      setTimeout(() => ctx.close(), 800);
+    } catch {
+      // ignore — chime is a nice-to-have
+    }
+  };
+
   const startAnalysis = async () => {
     if (!canAnalyze || !user) return;
 
@@ -280,9 +326,6 @@ function ChatScreen() {
       .map((b) => b.text)
       .join(" \n ");
 
-    // Use the language of the most recent bot reply (which mirrors the user's
-    // last spoken language) so the analysis comes back in the same language
-    // the conversation actually happened in.
     const conversationLang: RecognitionLang =
       [...bubbles].reverse().find((b) => b.from === "bot" && b.speechLang)?.speechLang ?? lang;
     const languageLabel: Record<RecognitionLang, string> = {
@@ -292,8 +335,11 @@ function ChatScreen() {
       "hi-IN": "Hindi",
     };
 
+    setMicError(false);
+    setMicSuccess(false);
     setStep("saving-transcript");
     setAnalyzeAttempt(0);
+    playThinkingChime();
     try {
       const { data: session, error: sessionErr } = await supabase
         .from("voice_sessions")
@@ -331,8 +377,10 @@ function ChatScreen() {
           break;
         } catch (err) {
           lastErr = err;
+          // Show the orange "weak network" state during retries so the user
+          // sees something is going on without needing to read.
           if (attempt < MAX_ATTEMPTS) {
-            // Exponential-ish backoff: 1.2s, 2.4s.
+            setMicWarning(true);
             await new Promise((r) => setTimeout(r, 1200 * attempt));
           }
         }
@@ -354,24 +402,24 @@ function ChatScreen() {
         .single();
       if (aErr) throw aErr;
 
+      // Audio + visual success cue before navigating.
       tts.cancel();
-      navigate({ to: "/results", search: { id: analysis.id } });
+      setMicWarning(false);
+      setMicSuccess(true);
+      setTimeout(() => navigate({ to: "/results", search: { id: analysis.id } }), 600);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Analysis failed";
-      toast.error(`${msg} — ضعف في الشبكة. حاول مرة أخرى.`);
+      console.error(err);
+      // Severe failure → red mic + spoken localised "weak network" message.
+      setMicWarning(false);
+      setMicError(true);
+      const wasMuted = tts.muted;
+      if (wasMuted) tts.toggleMute();
+      tts.speak(NETWORK_ERROR_VOICE[lang], lang, -1);
+      if (wasMuted) setTimeout(() => tts.toggleMute(), 3500);
+      setTimeout(() => setMicError(false), 4000);
       setStep("idle");
       setAnalyzeAttempt(0);
     }
-  };
-
-  const stepLabel: Record<AnalyzeStep, string> = {
-    "idle": "",
-    "saving-transcript": "Saving transcript…",
-    "calling-ai":
-      analyzeAttempt > 1
-        ? `جاري تحليل البيانات عبر شبكة ضعيفة… (retry ${analyzeAttempt}/3)`
-        : "جاري تحليل البيانات… Calling AI engine…",
-    "saving-results": "Saving results…",
   };
 
   if (authLoading) {
@@ -501,14 +549,17 @@ function ChatScreen() {
           onClick={startAnalysis}
           disabled={!canAnalyze}
           aria-label="Analyze My Skills"
-          className={`absolute -top-7 right-5 z-20 flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all ${
+          className={`absolute -top-7 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all ${
             canAnalyze
               ? "fab-pulse bg-primary text-primary-foreground"
               : "cursor-not-allowed bg-muted text-muted-foreground opacity-60"
           }`}
         >
-          <Sparkles className={`h-4 w-4 ${analyzing ? "animate-spin" : ""}`} />
-          {analyzing ? "Analyzing…" : "Analyze My Skills"}
+          {analyzing ? (
+            <Loader2 className="h-7 w-7 animate-spin" />
+          ) : (
+            <Sparkles className="h-7 w-7" />
+          )}
         </button>
 
         <div className="mx-auto w-full max-w-3xl px-5 pb-6 pt-6 sm:px-8">
@@ -536,6 +587,20 @@ function ChatScreen() {
               );
             })}
           </div>
+
+          {/* "Wait for signal" overlay — large pulsing radar shown while the
+              analyze pipeline is running. No text required: the icon + colour
+              tell the story for non-readers, and a chime played at start. */}
+          {analyzing && (
+            <div className="mb-4 flex flex-col items-center gap-2">
+              <div className="relative flex h-16 w-16 items-center justify-center">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/40" />
+                <span className="absolute inline-flex h-2/3 w-2/3 animate-ping rounded-full bg-primary/30 [animation-delay:300ms]" />
+                <Loader2 className="relative h-8 w-8 animate-spin text-primary" />
+              </div>
+            </div>
+          )}
+
           <AnimatePresence mode="wait">
             <motion.div
               key="mic"
@@ -545,7 +610,7 @@ function ChatScreen() {
               className="flex flex-col items-center gap-2"
             >
               <div className="relative flex h-20 w-20 items-center justify-center">
-                {listening && (
+                {listening && !micWarning && !micError && !micSuccess && (
                   <>
                     <span className="ripple" />
                     <span className="ripple delay-1" />
@@ -564,12 +629,34 @@ function ChatScreen() {
                     if (e.key === " " || e.code === "Space") handleHoldEnd();
                   }}
                   onContextMenu={(e) => e.preventDefault()}
-                  disabled={!supported || analyzing}
-                  aria-label={listening ? "Release to send" : "Hold to record"}
-                  className="relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] transition-transform disabled:opacity-50 touch-none"
-                  style={{ transform: listening ? "scale(1.08)" : undefined }}
+                  disabled={!supported || analyzing || micWarning || micError}
+                  aria-label={
+                    micError
+                      ? "Connection error"
+                      : micWarning
+                        ? "Weak connection"
+                        : micSuccess
+                          ? "Success"
+                          : listening
+                            ? "Release to send"
+                            : "Hold to record"
+                  }
+                  className={`relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full text-white shadow-[var(--shadow-mic)] transition-all touch-none ${
+                    micError
+                      ? "bg-destructive animate-shake"
+                      : micWarning
+                        ? "bg-warning animate-shake"
+                        : micSuccess
+                          ? "bg-success"
+                          : "bg-primary disabled:opacity-50"
+                  }`}
+                  style={{ transform: listening && !micWarning && !micError ? "scale(1.08)" : undefined }}
                 >
-                  {!supported ? (
+                  {micError || micWarning ? (
+                    <WifiOff className="h-9 w-9" />
+                  ) : micSuccess ? (
+                    <Check className="h-10 w-10" strokeWidth={3} />
+                  ) : !supported ? (
                     <MicOff className="h-8 w-8" />
                   ) : listening ? (
                     <Square className="h-7 w-7 fill-current" />
@@ -578,25 +665,20 @@ function ChatScreen() {
                   )}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {!supported
-                  ? "Voice input not supported. Try Chrome."
-                  : listening
-                    ? "Listening… release to send"
-                    : replying
-                      ? "Sawt-Net is thinking…"
-                      : userMessageCount === 0
-                      ? "Hold to start the conversation"
-                      : "Hold to keep talking"}
-              </p>
-              {analyzing && (
-                <p className="text-[11px] font-medium text-primary">{stepLabel[step]}</p>
-              )}
-              {!canAnalyze && userMessageCount > 0 && !analyzing && (
-                <p className="text-[11px] text-muted-foreground/70">
-                  Send {MIN_USER_MESSAGES_TO_ANALYZE - userMessageCount} more message
-                  {MIN_USER_MESSAGES_TO_ANALYZE - userMessageCount === 1 ? "" : "s"} to unlock analysis
-                </p>
+
+              {/* Tiny dot indicator for "remaining messages until analysis" —
+                  visual, not text-based. Filled = sent, empty = needed. */}
+              {!analyzing && userMessageCount < MIN_USER_MESSAGES_TO_ANALYZE && userMessageCount > 0 && (
+                <div className="flex items-center gap-1.5" aria-label={`${userMessageCount} of ${MIN_USER_MESSAGES_TO_ANALYZE} messages sent`}>
+                  {Array.from({ length: MIN_USER_MESSAGES_TO_ANALYZE }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`h-2 w-2 rounded-full transition-colors ${
+                        i < userMessageCount ? "bg-primary" : "bg-muted-foreground/30"
+                      }`}
+                    />
+                  ))}
+                </div>
               )}
             </motion.div>
           </AnimatePresence>

@@ -97,21 +97,17 @@ export function useSpeechRecognition(lang: RecognitionLang) {
     };
     rec.onerror = (e) => {
       if (e.error === "no-speech" || e.error === "aborted") return;
-      // Translate raw error codes into a single network-friendly message.
-      // Web Speech API's "network" / "service-not-allowed" errors typically
-      // mean Google's recognizer couldn't be reached over the user's
-      // connection — we want a friendly Arabic-first message and a clear
-      // hint that they can type instead.
+      // Stable, machine-readable code so the UI layer can decide how to
+      // react (audio message + icon + color) — we never surface raw text
+      // to the user, who may be unable to read.
       if (
         e.error === "network" ||
         e.error === "service-not-allowed" ||
         e.error === "audio-capture"
       ) {
-        setError(
-          "ضعف في شبكة الإنترنت. جرب مرة أخرى أو اكتب رسالتك. (Weak connection — try again or type your message.)",
-        );
+        setError("network");
       } else {
-        setError(e.error || "Recognition error");
+        setError(e.error || "error");
       }
     };
     rec.onend = () => {
