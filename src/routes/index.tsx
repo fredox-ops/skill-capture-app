@@ -15,7 +15,7 @@ import {
   Play,
   WifiOff,
 } from "lucide-react";
-import { toast } from "sonner";
+
 import { MobileShell } from "@/components/MobileShell";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AudioWave } from "@/components/AudioWave";
