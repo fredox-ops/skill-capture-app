@@ -93,7 +93,7 @@ Make localizability a **design feature**, not a slide.
 - Add an admin route `/admin/configure` (gated) that shows all current configs and lets you add a new country in <60 seconds. **This is the demo moment**: live-add Ghana on stage.
 - Document the contract in a `CONFIGURING_A_NEW_COUNTRY.md` so judges can read it.
 
-### Phase 3 — Policymaker dashboard (kills gap #5)
+### Phase 3 — Policymaker dashboard ✅ SHIPPED (kills gap #5)
 Required by Module 3. Without it, Module 3 is incomplete.
 
 - New route `/policy` with aggregate, anonymised views of all `analyses` rows:
