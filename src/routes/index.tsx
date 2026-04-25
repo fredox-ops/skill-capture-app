@@ -2,7 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  Check,
   History as HistoryIcon,
+  Loader2,
   Mic,
   MicOff,
   Settings,
