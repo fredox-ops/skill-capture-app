@@ -534,37 +534,33 @@ function ResultsContent({
           </div>
         </Section>
 
-        {analysis.signals?.education_trend && (
+        {edu && (
           <Section
             icon={<BookOpen className="h-4 w-4" />}
             title={copy.educationTrendTitle}
-            subtitle={analysis.signals.education_trend.source_short}
+            subtitle="Wittgenstein Centre, SSP2"
           >
             <div className="mb-3 flex items-end gap-3">
               <div className="flex-1">
                 <div className="text-xs text-muted-foreground">2025</div>
-                <div className="text-2xl font-bold">{analysis.signals.education_trend.share_2025_pct}%</div>
+                <div className="text-2xl font-bold">{edu.share_2025_pct}%</div>
               </div>
               <div className="text-2xl text-muted-foreground">→</div>
               <div className="flex-1">
                 <div className="text-xs text-muted-foreground">2035</div>
-                <div className="text-2xl font-bold text-primary">{analysis.signals.education_trend.share_2035_pct}%</div>
+                <div className="text-2xl font-bold text-primary">{edu.share_2035_pct}%</div>
               </div>
               <span className="rounded-full bg-primary/15 px-2 py-1 text-xs font-bold text-primary">
-                +{analysis.signals.education_trend.delta_pct} pts
+                +{edu.delta_pct} pts
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {copy.educationTrendBody(
-                analysis.signals.education_trend.share_2025_pct,
-                analysis.signals.education_trend.share_2035_pct,
-                country,
-              )}
+              {copy.educationTrendBody(edu.share_2025_pct, edu.share_2035_pct, country)}
             </p>
             <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <Database className="h-3 w-3" />
               <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
-              <span>{analysis.signals.education_trend.source}</span>
+              <span>Wittgenstein Centre, SSP2</span>
             </p>
           </Section>
         )}
