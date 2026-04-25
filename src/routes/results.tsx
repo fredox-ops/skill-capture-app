@@ -305,7 +305,7 @@ function ResultsContent({
           <button
             type="button"
             onClick={() => setCvOpen(true)}
-            className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary/80 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition active:scale-[0.98]"
+            className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-primary to-[var(--primary-glow)] py-3.5 text-sm font-bold tracking-wide text-primary-foreground shadow-[var(--shadow-mic)] transition active:scale-[0.98]"
           >
             <Download className="h-4 w-4" />
             {copy.downloadCv}
@@ -319,20 +319,23 @@ function ResultsContent({
                   : null;
               const tone =
                 pct === null
-                  ? "bg-primary/10 text-primary"
+                  ? "bg-[color:var(--primary-soft)] text-[color:var(--primary-deep)]"
                   : pct >= 70
                     ? "bg-destructive/10 text-destructive"
                     : pct >= 40
-                      ? "bg-warning/10 text-warning"
+                      ? "bg-warning/15 text-[color:oklch(0.45_0.13_55)]"
                       : "bg-success/10 text-success";
               return (
-                <span
+                <motion.span
                   key={`${s.isco_code}-${idx}`}
-                  className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.04, duration: 0.25 }}
+                  className="inline-flex items-center gap-2 rounded-full bg-[color:var(--primary-soft)] px-4 py-2 text-sm font-semibold text-[color:var(--primary-deep)] shadow-[var(--shadow-card)]"
                   title={s.automation_source ? `${copy.sourceLabel}: ${s.automation_source}` : undefined}
                 >
                   {s.name}
-                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold tracking-wide text-primary/80">
+                  <span className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold tracking-wide text-[color:var(--primary-deep)]/80">
                     ISCO {s.isco_code}
                   </span>
                   {pct !== null && (
@@ -340,7 +343,7 @@ function ResultsContent({
                       🤖 {pct}%
                     </span>
                   )}
-                </span>
+                </motion.span>
               );
             })}
           </div>
