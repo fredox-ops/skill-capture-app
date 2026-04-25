@@ -415,6 +415,12 @@ function ResultsContent({
           </p>
         </Section>
 
+        <ShareProfileSection
+          analysis={analysis}
+          enrichedSkills={enrichedSkills}
+          enrichedJobs={enrichedJobs}
+        />
+
         <Section
           icon={<ShieldAlert className="h-4 w-4" />}
           title={copy.riskTitle}
