@@ -28,15 +28,14 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "theme-color", content: "#3a7afe" },
+      { title: "Sawt-Net — Speak. Analyze. Get Jobs." },
+      { name: "description", content: "Turn your spoken skills into formal job opportunities. Voice-first, mobile-first." },
+      { property: "og:title", content: "Sawt-Net — Voice to Jobs" },
+      { property: "og:description", content: "From your voice to a real career. Built for the informal economy." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
