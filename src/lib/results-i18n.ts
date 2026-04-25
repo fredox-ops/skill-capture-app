@@ -60,6 +60,16 @@ export interface ResultsCopy {
 
   // Risk levels (kept in English in the data, but displayed translated)
   risk: { Low: string; Medium: string; High: string };
+
+  // Real-data econometric signals (Phase 1 — UNMAPPED brief)
+  realDataBadge: string; // "Real data"
+  sourceLabel: string;   // "Source"
+  automationSignalTitle: string;
+  wagesSignalTitle: string;
+  educationTrendTitle: string;
+  educationTrendBody: (a: number, b: number, country: string) => string;
+  honestLimitsTitle: string;
+  honestLimitsBody: string;
 }
 
 const en: ResultsCopy = {
