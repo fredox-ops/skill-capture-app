@@ -120,7 +120,7 @@ function ResultsScreen() {
     const fetchAnalysis = async () => {
       let query = supabase
         .from("analyses")
-        .select("id, session_id, skills, ai_score, risk_level, jobs, signals")
+        .select("id, share_id, session_id, skills, ai_score, risk_level, jobs, signals")
         .eq("user_id", user.id);
       if (id) {
         query = query.eq("id", id);
