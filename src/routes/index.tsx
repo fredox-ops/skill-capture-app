@@ -130,6 +130,15 @@ function ChatScreen() {
     }
   };
 
+  // When the profile updates (e.g. after voice onboarding writes Morocco/Arabic),
+  // pull the new language into the chat so the greeting + recognizer match.
+  useEffect(() => {
+    if (!profile) return;
+    const next = getRecognitionLang(profile.language, profile.country);
+    setLang((curr) => (curr === next ? curr : next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.country, profile?.language]);
+
   const { supported, listening, transcript, interim, error, start, stop, reset } =
     useSpeechRecognition(lang);
 
