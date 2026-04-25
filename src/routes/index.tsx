@@ -80,7 +80,32 @@ function ChatScreen() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [replying, setReplying] = useState(false);
 
-  const lang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
+  const profileLang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
+
+  // Per-turn language picker — defaults to the profile language but the user
+  // can switch on the fly so the recognizer hears them in the language they
+  // are actually about to speak. Persisted in localStorage between sessions.
+  const [lang, setLang] = useState<RecognitionLang>(() => {
+    if (typeof window === "undefined") return profileLang;
+    const saved = localStorage.getItem("sawtnet-active-lang") as RecognitionLang | null;
+    if (saved && (saved === "ar-MA" || saved === "en-US" || saved === "fr-FR" || saved === "hi-IN")) {
+      return saved;
+    }
+    return profileLang;
+  });
+
+  // If the user changes their profile language while no message has been sent
+  // yet, follow the profile (handled in the greeting effect below). Otherwise
+  // their per-turn pick wins.
+  const pickLang = (next: RecognitionLang) => {
+    setLang(next);
+    try {
+      localStorage.setItem("sawtnet-active-lang", next);
+    } catch {
+      // ignore
+    }
+  };
+
   const { supported, listening, transcript, interim, error, start, stop, reset } =
     useSpeechRecognition(lang);
 
