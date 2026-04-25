@@ -46,6 +46,8 @@ interface Bubble {
   id: number;
   from: "bot" | "user";
   text: string;
+  speechLang?: RecognitionLang;
+  direction?: "rtl" | "ltr";
 }
 
 const GREETINGS: Record<RecognitionLang, string> = {
@@ -59,43 +61,11 @@ const GREETINGS: Record<RecognitionLang, string> = {
     "नमस्ते 👋 मैं Sawt-Net हूँ। मुझे बताइए आप रोज़ क्या काम करते हैं — मैं आपके लिए असली नौकरी के मौके ढूंढूंगा।",
 };
 
-const FOLLOW_UPS: Record<RecognitionLang, string[]> = {
-  "ar-MA": [
-    "مزيان! شنو هما الحوايج اللي كتعرف تصاوب بيدك؟",
-    "شحال هادي وأنت كدير هاد الخدمة؟",
-    "واش كتخدم بوحدك ولا مع ناس أخرين؟",
-    "شنو هي أصعب حاجة فهاد الخدمة بالنسبة ليك؟",
-    "عاود لي على آخر يوم خدمت فيه — كيفاش دازت النهار؟",
-    "واش كتستعمل شي ماكينات ولا أدوات خاصة؟",
-    "شنو هي الحاجة اللي كتعجبك أكثر فخدمتك؟",
-  ],
-  "en-US": [
-    "Nice! What kinds of things can you make or fix with your hands?",
-    "How long have you been doing this kind of work?",
-    "Do you work alone or with other people?",
-    "What's the hardest part of your job?",
-    "Walk me through your last working day — how did it go?",
-    "Do you use any specific tools or machines?",
-    "What do you enjoy most about what you do?",
-  ],
-  "fr-FR": [
-    "Super ! Quelles sont les choses que tu sais faire ou réparer de tes mains ?",
-    "Depuis combien de temps tu fais ce travail ?",
-    "Tu travailles seul ou avec d'autres personnes ?",
-    "Qu'est-ce qui est le plus difficile dans ton travail ?",
-    "Raconte-moi ta dernière journée de travail — comment ça s'est passée ?",
-    "Tu utilises des outils ou des machines particulières ?",
-    "Qu'est-ce que tu aimes le plus dans ton travail ?",
-  ],
-  "hi-IN": [
-    "बढ़िया! आप अपने हाथों से क्या-क्या बना या ठीक कर सकते हैं?",
-    "आप यह काम कब से कर रहे हैं?",
-    "आप अकेले काम करते हैं या दूसरों के साथ?",
-    "इस काम में सबसे मुश्किल बात क्या है?",
-    "अपने पिछले काम के दिन के बारे में बताइए — कैसा रहा?",
-    "क्या आप कोई खास उपकरण या मशीन इस्तेमाल करते हैं?",
-    "अपने काम में आपको सबसे ज़्यादा क्या पसंद है?",
-  ],
+const fallbackFollowUps: Record<RecognitionLang, string> = {
+  "ar-MA": "فهمتك. زيد عاود لي على شي مثال آخر من الخدمة ديالك؟",
+  "en-US": "I understand. Can you tell me one more real example from your work?",
+  "fr-FR": "Je comprends. Tu peux me donner un autre exemple concret de ton travail ?",
+  "hi-IN": "समझ गया। क्या आप अपने काम का एक और असली उदाहरण बता सकते हैं?",
 };
 
 const MIN_USER_MESSAGES_TO_ANALYZE = 2;
@@ -107,15 +77,15 @@ function ChatScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [step, setStep] = useState<AnalyzeStep>("idle");
   const analyzing = step !== "idle";
-  const questionIndexRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [replying, setReplying] = useState(false);
 
   const lang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
   const { supported, listening, transcript, interim, error, start, stop, reset } =
     useSpeechRecognition(lang);
 
   const [bubbles, setBubbles] = useState<Bubble[]>(() => [
-    { id: 1, from: "bot", text: GREETINGS[lang] },
+    { id: 1, from: "bot", text: GREETINGS[lang], speechLang: lang, direction: lang === "ar-MA" ? "rtl" : "ltr" },
   ]);
 
   // Keep the initial greeting in sync if the user changes language in Settings
@@ -123,7 +93,7 @@ function ChatScreen() {
   useEffect(() => {
     setBubbles((b) => {
       if (b.length === 1 && b[0].from === "bot") {
-        return [{ id: 1, from: "bot", text: GREETINGS[lang] }];
+        return [{ id: 1, from: "bot", text: GREETINGS[lang], speechLang: lang, direction: lang === "ar-MA" ? "rtl" : "ltr" }];
       }
       return b;
     });
@@ -168,32 +138,70 @@ function ChatScreen() {
   const userMessageCount = bubbles.filter((b) => b.from === "user").length;
   const canAnalyze = userMessageCount >= MIN_USER_MESSAGES_TO_ANALYZE && !analyzing;
 
-  const stopAndPush = () => {
+  const stopAndPush = async () => {
     stop();
     const text = transcript.trim();
     if (!text) {
       reset();
       return;
     }
-    const userBubbleId = Date.now();
-    setBubbles((b) => [...b, { id: userBubbleId, from: "user", text }]);
 
-    // Pick the next mock follow-up question in the user's language.
-    const followUps = FOLLOW_UPS[lang];
-    const idx = questionIndexRef.current % followUps.length;
-    questionIndexRef.current += 1;
-    const followUp = followUps[idx];
-    const botBubbleId = userBubbleId + 1;
+    const userBubble: Bubble = { id: Date.now(), from: "user", text, speechLang: lang };
+    const conversation = [...bubbles, userBubble];
+    setBubbles(conversation);
+    reset();
+    setReplying(true);
 
-    window.setTimeout(() => {
-      setBubbles((b) => [...b, { id: botBubbleId, from: "bot", text: followUp }]);
-      tts.speak(followUp, lang, botBubbleId);
-    }, 650);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke("chat-followup", {
+        body: {
+          messages: conversation.map(({ from, text }) => ({ from, text })),
+          country: profile?.country ?? "Morocco",
+        },
+      });
+      if (fnErr) throw fnErr;
+      if (data?.error) throw new Error(data.error);
+
+      const speechLang: RecognitionLang =
+        data?.speech_lang === "ar-MA" ||
+        data?.speech_lang === "en-US" ||
+        data?.speech_lang === "fr-FR" ||
+        data?.speech_lang === "hi-IN"
+          ? data.speech_lang
+          : lang;
+      const followUp = typeof data?.reply === "string" && data.reply.trim()
+        ? data.reply.trim()
+        : fallbackFollowUps[speechLang];
+      const botBubble: Bubble = {
+        id: userBubble.id + 1,
+        from: "bot",
+        text: followUp,
+        speechLang,
+        direction: data?.direction === "rtl" ? "rtl" : "ltr",
+      };
+
+      setBubbles((b) => [...b, botBubble]);
+      tts.speak(followUp, speechLang, botBubble.id);
+    } catch (err) {
+      console.error(err);
+      const followUp = fallbackFollowUps[lang];
+      const botBubble: Bubble = {
+        id: userBubble.id + 1,
+        from: "bot",
+        text: followUp,
+        speechLang: lang,
+        direction: lang === "ar-MA" ? "rtl" : "ltr",
+      };
+      setBubbles((b) => [...b, botBubble]);
+      tts.speak(followUp, lang, botBubble.id);
+    } finally {
+      setReplying(false);
+    }
   };
 
   // ---- Press-and-hold mic handlers ----------------------------------------
   const handleHoldStart = (e: React.PointerEvent | React.KeyboardEvent) => {
-    if (!supported || listening || analyzing) return;
+    if (!supported || listening || analyzing || replying) return;
     if ("preventDefault" in e) e.preventDefault();
     start();
   };
@@ -335,7 +343,7 @@ function ChatScreen() {
                   className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    dir={isUser ? "auto" : lang === "ar-MA" ? "rtl" : "ltr"}
+                    dir={isUser ? "auto" : b.direction ?? "ltr"}
                     className={`relative max-w-[80%] rounded-2xl px-4 py-2.5 text-[15px] leading-snug shadow-sm ${
                       isUser
                         ? "rounded-br-md bg-bubble-user text-bubble-user-foreground"
@@ -435,7 +443,9 @@ function ChatScreen() {
                   ? "Voice input not supported. Try Chrome."
                   : listening
                     ? "Listening… release to send"
-                    : userMessageCount === 0
+                    : replying
+                      ? "Sawt-Net is thinking…"
+                      : userMessageCount === 0
                       ? "Hold to start the conversation"
                       : "Hold to keep talking"}
               </p>
