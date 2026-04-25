@@ -23,6 +23,8 @@ import { getResultsCopy, type ResultsCopy } from "@/lib/results-i18n";
 interface Skill {
   name: string;
   isco_code: string;
+  automation_probability?: number;
+  automation_source?: string;
 }
 interface Listing {
   title: string;
@@ -33,9 +35,28 @@ interface Opportunity {
   job_title: string;
   match_percent: number;
   local_wage: string;
+  isco_code?: string;
+  wage_year?: number | null;
+  wage_source?: string | null;
+  automation_probability?: number;
   listings?: Listing[];
 }
 type RiskLevel = "Low Risk" | "Medium Risk" | "High Risk";
+
+interface Signals {
+  automation?: { source?: string; source_short?: string; method?: string };
+  wages?: { source?: string; source_short?: string; year?: number | null; country?: string };
+  education_trend?: {
+    country: string;
+    iso3: string;
+    share_2025_pct: number;
+    share_2035_pct: number;
+    delta_pct: number;
+    narrative_en: string;
+    source: string;
+    source_short: string;
+  } | null;
+}
 
 interface Analysis {
   id: string;
@@ -44,6 +65,7 @@ interface Analysis {
   ai_score: number;
   risk_level: RiskLevel;
   jobs: Opportunity[];
+  signals?: Signals;
 }
 
 export const Route = createFileRoute("/results")({
@@ -88,7 +110,7 @@ function ResultsScreen() {
     const fetchAnalysis = async () => {
       let query = supabase
         .from("analyses")
-        .select("id, session_id, skills, ai_score, risk_level, jobs")
+        .select("id, session_id, skills, ai_score, risk_level, jobs, signals")
         .eq("user_id", user.id);
       if (id) {
         query = query.eq("id", id);
