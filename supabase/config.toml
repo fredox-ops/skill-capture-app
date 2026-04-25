@@ -2,3 +2,6 @@ project_id = "pfdtywytvvzlnkruaido"
 
 [functions.analyze-skills]
 verify_jwt = false
+
+[functions.chat-followup]
+verify_jwt = false
