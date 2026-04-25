@@ -310,18 +310,45 @@ function ResultsContent({
           </button>
 
           <div className="flex flex-wrap gap-2">
-            {analysis.skills.map((s, idx) => (
-              <span
-                key={`${s.isco_code}-${idx}`}
-                className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
-              >
-                {s.name}
-                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold tracking-wide text-primary/80">
-                  ISCO {s.isco_code}
+            {analysis.skills.map((s, idx) => {
+              const pct =
+                typeof s.automation_probability === "number"
+                  ? Math.round(s.automation_probability * 100)
+                  : null;
+              const tone =
+                pct === null
+                  ? "bg-primary/10 text-primary"
+                  : pct >= 70
+                    ? "bg-destructive/10 text-destructive"
+                    : pct >= 40
+                      ? "bg-warning/10 text-warning"
+                      : "bg-success/10 text-success";
+              return (
+                <span
+                  key={`${s.isco_code}-${idx}`}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
+                  title={s.automation_source ? `${copy.sourceLabel}: ${s.automation_source}` : undefined}
+                >
+                  {s.name}
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold tracking-wide text-primary/80">
+                    ISCO {s.isco_code}
+                  </span>
+                  {pct !== null && (
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone}`}>
+                      🤖 {pct}%
+                    </span>
+                  )}
                 </span>
-              </span>
-            ))}
+              );
+            })}
           </div>
+          {analysis.signals?.automation?.source_short && (
+            <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Database className="h-3 w-3" />
+              <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
+              <span>{analysis.signals.automation.source_short}</span>
+            </p>
+          )}
         </Section>
 
         <Section
