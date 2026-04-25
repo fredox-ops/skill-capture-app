@@ -271,14 +271,6 @@ function ChatScreen() {
     await sendUserMessage(text);
   };
 
-  const handleSendTyped = async () => {
-    const text = typedMessage.trim();
-    if (!text || replying || analyzing) return;
-    setTypedMessage("");
-    tts.unlock();
-    await sendUserMessage(text);
-  };
-
   // ---- Press-and-hold mic handlers ----------------------------------------
   const handleHoldStart = (e: React.PointerEvent | React.KeyboardEvent) => {
     if (!supported || listening || analyzing || replying) return;
