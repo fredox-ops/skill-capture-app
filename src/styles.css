@@ -190,8 +190,17 @@
     width: 100%;
     margin-inline: auto;
     background: var(--color-background);
-    min-height: 100dvh;
+    min-height: 0;
     position: relative;
+  }
+
+  /* Hide scrollbar but keep scroll functionality (WhatsApp-like clean look) */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE/Edge */
+    scrollbar-width: none;     /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;             /* Chrome/Safari/Opera */
   }
 
   .ripple {
