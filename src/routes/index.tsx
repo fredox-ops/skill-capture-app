@@ -530,22 +530,22 @@ function ChatScreen() {
               return (
                 <motion.div
                   key={b.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                   className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                 >
                   <div
                     dir={isUser ? "auto" : b.direction ?? "ltr"}
-                    className={`relative max-w-[80%] rounded-2xl px-4 py-2.5 text-[15px] leading-snug shadow-sm ${
+                    className={`relative max-w-[82%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-[var(--shadow-card)] ${
                       isUser
-                        ? "rounded-br-md bg-bubble-user text-bubble-user-foreground"
+                        ? "rounded-br-md bg-gradient-to-br from-primary to-[var(--primary-glow)] text-bubble-user-foreground"
                         : "rounded-bl-md bg-bubble-bot text-bubble-bot-foreground"
                     }`}
                   >
-                    <span className="block">{b.text}</span>
+                    <span className="block font-medium">{b.text}</span>
                     {isSpeaking && (
-                      <span className="mt-1 flex items-center gap-1.5 text-[11px] text-primary">
+                      <span className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-primary">
                         <AudioWave />
                         <span>Speaking…</span>
                       </span>
@@ -556,10 +556,9 @@ function ChatScreen() {
                         onClick={() => {
                           tts.unlock();
                           if (tts.muted) tts.toggleMute();
-                          // Defer slightly so the unmute state propagates before speak() reads it.
                           setTimeout(() => tts.speak(b.text, b.speechLang ?? lang, b.id), 50);
                         }}
-                        className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-primary/80 hover:text-primary"
+                        className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary/80 transition hover:text-primary"
                         aria-label="Play reply audio"
                       >
                         <Play className="h-3 w-3" />
@@ -573,7 +572,7 @@ function ChatScreen() {
 
             {listening && (transcript || interim) && (
               <div className="flex justify-end">
-                <div className="max-w-[80%] rounded-2xl rounded-br-md bg-bubble-user/70 px-4 py-2.5 text-[15px] text-bubble-user-foreground shadow-sm">
+                <div className="max-w-[82%] rounded-2xl rounded-br-md bg-gradient-to-br from-primary/80 to-[var(--primary-glow)]/80 px-4 py-3 text-[15px] font-medium text-bubble-user-foreground shadow-[var(--shadow-card)]">
                   {transcript}
                   {interim && <span className="italic opacity-80"> {interim}</span>}
                   <span className="ml-1 inline-block h-3 w-0.5 animate-pulse bg-white" />
@@ -581,7 +580,7 @@ function ChatScreen() {
               </div>
             )}
 
-            {/* Sentinel — auto-scroll target. Always rendered last. */}
+            {/* Sentinel — auto-scroll target. */}
             <div ref={messagesEndRef} aria-hidden="true" />
           </div>
         </div>
