@@ -143,32 +143,34 @@ function ResultsScreen() {
 
   return (
     <MobileShell>
-      <header className="border-b border-border bg-card" dir={dir}>
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 sm:px-8">
+      <header className="bg-card/95 backdrop-blur-sm" dir={dir}>
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex items-center gap-3">
             <Link
               to="/"
               aria-label={copy.back}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted transition hover:bg-accent"
             >
               <ArrowLeft className={`h-5 w-5 ${dir === "rtl" ? "rotate-180" : ""}`} />
             </Link>
             <div>
-              <h1 className="text-base font-bold leading-tight">{copy.yourProfile}</h1>
-              <p className="text-xs text-muted-foreground">{copy.poweredBy}</p>
+              <h1 className="text-base font-extrabold leading-tight tracking-tight text-foreground">
+                {copy.yourProfile}
+              </h1>
+              <p className="text-xs font-medium text-muted-foreground">{copy.poweredBy}</p>
             </div>
           </div>
           <Link
             to="/history"
             aria-label={copy.history}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted transition hover:bg-accent"
           >
             <HistoryIcon className="h-5 w-5" />
           </Link>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto bg-chat-bg" dir={dir}>
+      <div className="flex-1 overflow-y-auto bg-app-shell" dir={dir}>
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
           {loading ? (
             <ResultsSkeleton copy={copy} />
