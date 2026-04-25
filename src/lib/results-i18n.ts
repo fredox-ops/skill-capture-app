@@ -122,6 +122,16 @@ const en: ResultsCopy = {
   },
   generating: "Writing your application…",
   risk: { Low: "Low Risk", Medium: "Medium Risk", High: "High Risk" },
+  realDataBadge: "Real data",
+  sourceLabel: "Source",
+  automationSignalTitle: "Automation exposure (per skill)",
+  wagesSignalTitle: "Local wage benchmark",
+  educationTrendTitle: "Education trend 2025 → 2035",
+  educationTrendBody: (a, b, country) =>
+    `In ${country}, the share of 20–39 year-olds with upper-secondary education is projected to rise from ${a}% (2025) to ${b}% (2035).`,
+  honestLimitsTitle: "What we don't know",
+  honestLimitsBody:
+    "Wages are national medians by ISCO major group, not local offers. Automation scores are from Frey-Osborne (US labour market) and may understate hands-on resilience in LMIC contexts. Use as guidance, not a guarantee.",
 };
 
 const ar: ResultsCopy = {
@@ -174,6 +184,16 @@ const ar: ResultsCopy = {
   },
   generating: "كنكتبو ليك رسالة التقديم…",
   risk: { Low: "خطر منخفض", Medium: "خطر متوسّط", High: "خطر عالي" },
+  realDataBadge: "بيانات حقيقية",
+  sourceLabel: "المصدر",
+  automationSignalTitle: "تعرّض الأتمتة (لكل مهارة)",
+  wagesSignalTitle: "مرجع الأجور المحلية",
+  educationTrendTitle: "توجّه التعليم 2025 ← 2035",
+  educationTrendBody: (a, b, country) =>
+    `في ${country}، نسبة الشباب من 20 إلى 39 سنة الحاصلين على التعليم الثانوي غادي ترتفع من ${a}% عام 2025 إلى ${b}% عام 2035.`,
+  honestLimitsTitle: "آش ما كنعرفوش",
+  honestLimitsBody:
+    "الأجور هي معدلات وطنية حسب المجموعة المهنية ISCO، ماشي عروض محلية. درجات الأتمتة مستخرجة من Frey-Osborne (سوق الشغل الأمريكي) وقد تكون غير دقيقة بالنسبة للمهن اليدوية في الدول النامية. استعمل المعلومات كدليل، ماشي ضمانة.",
 };
 
 const fr: ResultsCopy = {
@@ -226,6 +246,16 @@ const fr: ResultsCopy = {
   },
   generating: "Rédaction de ta candidature…",
   risk: { Low: "Risque faible", Medium: "Risque moyen", High: "Risque élevé" },
+  realDataBadge: "Données réelles",
+  sourceLabel: "Source",
+  automationSignalTitle: "Exposition à l'automatisation (par compétence)",
+  wagesSignalTitle: "Référence salariale locale",
+  educationTrendTitle: "Tendance éducation 2025 → 2035",
+  educationTrendBody: (a, b, country) =>
+    `Au ${country}, la part des 20–39 ans avec un niveau secondaire supérieur passera de ${a}% (2025) à ${b}% (2035).`,
+  honestLimitsTitle: "Ce que nous ne savons pas",
+  honestLimitsBody:
+    "Les salaires sont des médianes nationales par grand groupe ISCO, pas des offres locales. Les scores d'automatisation viennent de Frey-Osborne (marché US) et peuvent sous-estimer la résilience manuelle dans les contextes LMIC. À utiliser comme repère, pas comme garantie.",
 };
 
 const hi: ResultsCopy = {
@@ -278,6 +308,16 @@ const hi: ResultsCopy = {
   },
   generating: "आपका आवेदन लिखा जा रहा है…",
   risk: { Low: "कम जोखिम", Medium: "मध्यम जोखिम", High: "उच्च जोखिम" },
+  realDataBadge: "वास्तविक डेटा",
+  sourceLabel: "स्रोत",
+  automationSignalTitle: "ऑटोमेशन एक्सपोज़र (प्रत्येक स्किल)",
+  wagesSignalTitle: "स्थानीय वेतन बेंचमार्क",
+  educationTrendTitle: "शिक्षा रुझान 2025 → 2035",
+  educationTrendBody: (a, b, country) =>
+    `${country} में, उच्चतर माध्यमिक शिक्षा वाले 20–39 वर्षीय युवाओं का हिस्सा ${a}% (2025) से बढ़कर ${b}% (2035) होने का अनुमान है।`,
+  honestLimitsTitle: "हम क्या नहीं जानते",
+  honestLimitsBody:
+    "वेतन ISCO बड़े समूह के राष्ट्रीय मध्य हैं, स्थानीय ऑफ़र नहीं। ऑटोमेशन स्कोर Frey-Osborne (US श्रम बाज़ार) से लिए गए हैं और LMIC संदर्भों में हाथ से किए जाने वाले कामों की resilience को कम आँक सकते हैं। दिशा-निर्देश के रूप में उपयोग करें, गारंटी नहीं।",
 };
 
 const TABLE: Record<ResultsLang, ResultsCopy> = {
