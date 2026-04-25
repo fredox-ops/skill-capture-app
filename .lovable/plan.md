@@ -1,84 +1,42 @@
-# Migrate to your own Supabase project
+## Context
 
-You already provided your credentials — they're stored as the secrets `MY_SUPABASE_URL`, `MY_SUPABASE_ANON_KEY`, and `MY_SUPABASE_SERVICE_ROLE_KEY`. This plan rewires the app to point at **your** Supabase project instead of Lovable Cloud's, so you get full dashboard access (SQL editor, logs, auth UI, storage, etc.).
+The Web Speech API is **already wired up** in this project:
 
-> ⚠️ **Heads-up before we start**
-> - This is a **one-way swap**. Lovable's automated migration tool, type generation, and edge-function deploys will no longer sync to your project. You'll run SQL and deploy functions yourself.
-> - Existing data in the current Lovable Cloud DB will **not** be copied. You confirmed earlier the DB only has test data, so we'll start fresh.
-> - The files `src/integrations/supabase/client.ts`, `client.server.ts`, `auth-middleware.ts`, and `types.ts` are normally auto-generated. After the swap I'll edit them manually and they should be treated as hand-managed from then on.
+- `src/hooks/useSpeechRecognition.tsx` — uses `window.SpeechRecognition || window.webkitSpeechRecognition`, supports `ar-MA`, `fr-FR`, `hi-IN`, `en-US`, exposes `start/stop/reset` plus `transcript`, `interim`, `listening`, `supported`, `error`.
+- `src/routes/index.tsx` — wires the mic button, renders the live + final bubble, stores transcript in `bubbles` state, and POSTs it to the `analyze-skills` edge function.
+- Settings (`SettingsModal`) lets the user pick **Country** (Morocco/India) and **Language** (Arabic/English/French). `getRecognitionLang()` already returns `ar-MA` when language is "Arabic" → **Darija works today** if the user picks Arabic.
 
----
+The remaining gaps vs. your request are: (1) the button is tap-to-toggle, not push-and-hold, and (2) Darija is only selected when language="Arabic" — a Morocco user who left language on English/French won't get Darija.
 
-## 1. Rewire environment variables
+## Changes
 
-Update `.env` so both client (Vite) and server (TanStack server fns) point at your project:
+### 1. `src/hooks/useSpeechRecognition.tsx`
+- Strengthen Darija handling in `getRecognitionLang()`: if `country === "Morocco"` AND language is English/French, **also default to `ar-MA`** so Darija is recognized even when the UI language differs. (Arabic + Morocco still → `ar-MA`. India still → `hi-IN`. Other cases unchanged.)
+  - Rationale: Web Speech `lang` controls only the recognizer, not the UI. Setting `ar-MA` lets Chrome's recognizer accept Darija/Arabic phonetics regardless of the chat UI language.
+- No API changes to the hook's return shape.
 
-```env
-VITE_SUPABASE_URL=<your project URL>
-VITE_SUPABASE_PUBLISHABLE_KEY=<your anon key>
-VITE_SUPABASE_PROJECT_ID=<your project ref>
-SUPABASE_URL=<your project URL>
-SUPABASE_PUBLISHABLE_KEY=<your anon key>
-SUPABASE_SERVICE_ROLE_KEY=<your service role key>
-```
+### 2. `src/routes/index.tsx` — push-and-hold mic button
+Replace the current `onClick` toggle on the mic `<button>` with press-and-hold gestures that work on **mouse, touch, and pointer**:
 
-I'll pull the actual values from the `MY_SUPABASE_*` secrets you already added.
+- Add a small `holdingRef` + handlers:
+  - `onPointerDown` → `start()` (call `e.preventDefault()` to avoid double-fire on touch devices).
+  - `onPointerUp` / `onPointerLeave` / `onPointerCancel` → `stopAndPush()`.
+  - Fallback `onTouchStart` / `onTouchEnd` for older iOS Safari that doesn't fully support pointer events on buttons.
+  - Keyboard a11y: `onKeyDown` (Space) starts, `onKeyUp` (Space) stops — so the button stays usable without a pointer.
+- Update the helper label from "Tap and speak your skills" → "**Hold to speak**" (and "Listening… release to send" while active).
+- Keep the existing `Square`/`Mic`/`MicOff` icon swap logic — it already keys off `listening`.
+- `stopAndPush()` already grabs `transcript`, pushes a user bubble, and triggers the bot follow-up — no change to that logic. The transcript remains stored in `bubbles` and is what's sent to `analyze-skills` via `lastUserMessage`.
 
-## 2. Update Supabase client files
+### 3. (Optional, subtle) Show the active recognizer language under the mic
+Add a tiny line like `Language: العربية (Darija)` / `English` / etc. below the helper text, so the user knows which model is listening. Pure UI; uses the value already returned by `getRecognitionLang()`.
 
-- **`src/integrations/supabase/client.ts`** — keep the same `import.meta.env` / `process.env` lookup (no change needed since the env vars now point at your project).
-- **`src/integrations/supabase/client.server.ts`** — same, reads `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from `process.env`.
-- **`src/integrations/supabase/auth-middleware.ts`** — same, no change needed.
-- **`src/integrations/supabase/types.ts`** — replace the auto-generated content with a hand-written `Database` type covering `profiles`, `voice_sessions`, and `analyses` so TypeScript stays happy without the generator.
+## Notes / non-changes
 
-## 3. SQL you run in YOUR Supabase dashboard
+- **No edge-function changes.** The transcript (already stored in component state) is already sent to `analyze-skills` — your request explicitly said "save it so we can send it later", and that wiring already exists.
+- **No new dependencies.** Web Speech API is browser-native; works in Chrome/Edge/Android Chrome. Safari/Firefox will hit the existing `!supported` branch and show `MicOff` + the "not supported" message.
+- **Darija caveat (worth knowing):** Chrome's `ar-MA` model handles Modern Standard Arabic well and accepts a lot of Darija, but accuracy varies by speaker and code-switching with French. The hook already lets a user override via Settings → Language if they prefer pure English/French recognition.
 
-I'll give you a single SQL script to paste into **SQL Editor → New query** in your project. It creates:
+## Files touched
 
-- `profiles` (id, user_id, display_name, country, language, avatar_url, timestamps)
-- `voice_sessions` (id, user_id, transcript, language, created_at)
-- `analyses` (id, user_id, session_id, skills jsonb, jobs jsonb, ai_score, risk_level, created_at)
-- RLS enabled on all three with `auth.uid() = user_id` policies for SELECT/INSERT/UPDATE/DELETE
-- `update_updated_at_column()` function + trigger on `profiles.updated_at`
-- `handle_new_user()` function + `on_auth_user_created` trigger to auto-create a profile row on signup
-
-## 4. Auth setup in your Supabase dashboard
-
-Quick checklist I'll walk you through:
-- **Authentication → URL Configuration** → Site URL = your Lovable preview/published URL; add the same to Redirect URLs.
-- **Authentication → Providers → Email** → leave email/password on; toggle "Confirm email" off if you want instant sign-in (you currently have that behavior).
-- **Authentication → Providers → Google** → optional; only if you want Google sign-in (you'd paste your Google OAuth client ID/secret).
-
-## 5. Deploy the `analyze-skills` edge function to YOUR project
-
-Since Lovable's auto-deploy is bound to its own project, you'll deploy this one yourself. Two options I'll document:
-
-**Option A — Supabase CLI (recommended):**
-```bash
-npx supabase login
-npx supabase link --project-ref <your project ref>
-npx supabase secrets set LOVABLE_API_KEY=<your key>
-npx supabase functions deploy analyze-skills
-```
-
-**Option B — Dashboard:** Edge Functions → New function → paste the contents of `supabase/functions/analyze-skills/index.ts` → set `LOVABLE_API_KEY` in Function Settings → Secrets.
-
-> Note: `LOVABLE_API_KEY` currently comes from Lovable Cloud. If you want to keep using Lovable AI Gateway from your own project, you'll need to either (a) get a standalone Lovable AI key, or (b) swap the function to use OpenAI/Gemini directly with your own key. I'll flag this and ask before deploying.
-
-## 6. Verify
-
-After the swap, I'll:
-1. Run the build to confirm TypeScript compiles against the hand-written types.
-2. Walk you through signing up → checking the new user appears in **your** dashboard's Auth → Users tab.
-3. Confirm a recording produces rows in **your** `voice_sessions` and `analyses` tables.
-
----
-
-## What you'll need to do manually
-1. Run the SQL script in your Supabase SQL Editor (I'll provide it).
-2. Deploy `analyze-skills` via CLI or dashboard (I'll provide commands + secret value).
-3. Configure Site URL + (optionally) Google OAuth in your Auth settings.
-
-Everything else (env files, client code, types) I'll handle.
-
-**Approve to proceed and I'll execute steps 1–2 and produce the SQL + deploy instructions for steps in your dashboard.**
+- `src/hooks/useSpeechRecognition.tsx` — tweak `getRecognitionLang()` only.
+- `src/routes/index.tsx` — swap the mic button's `onClick` for press-and-hold pointer/touch/keyboard handlers + updated helper text.

@@ -31,7 +31,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type RecognitionLang = "en-US" | "fr-FR" | "ar-MA" | "hi-IN";
 
+export const RECOGNITION_LANG_LABELS: Record<RecognitionLang, string> = {
+  "ar-MA": "العربية (Darija)",
+  "fr-FR": "Français",
+  "en-US": "English",
+  "hi-IN": "हिन्दी",
+};
+
 export function getRecognitionLang(language: string, country: string): RecognitionLang {
+  // Morocco speakers usually mix Darija into anything they say — default to ar-MA
+  // unless they explicitly picked French. Chrome's ar-MA recognizer accepts a lot
+  // of Darija + Arabic phonetics, even when the UI is in English.
+  if (country === "Morocco") {
+    if (language === "French") return "fr-FR";
+    return "ar-MA";
+  }
   if (language === "Arabic") return "ar-MA";
   if (language === "French") return "fr-FR";
   if (country === "India") return "hi-IN";

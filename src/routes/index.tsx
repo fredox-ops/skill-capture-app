@@ -7,7 +7,11 @@ import { MobileShell } from "@/components/MobileShell";
 import { SettingsModal } from "@/components/SettingsModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-import { useSpeechRecognition, getRecognitionLang } from "@/hooks/useSpeechRecognition";
+import {
+  useSpeechRecognition,
+  getRecognitionLang,
+  RECOGNITION_LANG_LABELS,
+} from "@/hooks/useSpeechRecognition";
 import { supabase } from "@/integrations/supabase/client";
 
 type AnalyzeStep = "idle" | "saving-transcript" | "calling-ai" | "saving-results";
@@ -63,7 +67,7 @@ function ChatScreen() {
     stop();
     const text = transcript.trim();
     if (!text) {
-      toast.error("I didn't catch that. Try again.");
+      // Silently reset on empty release — no toast spam if the user just tapped.
       reset();
       return;
     }
@@ -78,6 +82,19 @@ function ChatScreen() {
         },
       ]);
     }, 400);
+  };
+
+  // ---- Press-and-hold mic handlers ----------------------------------------
+  // Pointer events cover mouse + touch + pen on modern browsers. We also wire
+  // keyboard (Space) for accessibility.
+  const handleHoldStart = (e: React.PointerEvent | React.KeyboardEvent) => {
+    if (!supported || listening || analyzing) return;
+    if ("preventDefault" in e) e.preventDefault();
+    start();
+  };
+  const handleHoldEnd = () => {
+    if (!listening) return;
+    stopAndPush();
   };
 
   const lastUserMessage = [...bubbles].reverse().find((b) => b.from === "user")?.text;
@@ -261,10 +278,21 @@ function ChatScreen() {
                     </>
                   )}
                   <button
-                    onClick={() => (listening ? stopAndPush() : start())}
-                    disabled={!supported}
-                    aria-label={listening ? "Stop recording" : "Start recording"}
-                    className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] active:scale-95 transition-transform disabled:opacity-50"
+                    onPointerDown={handleHoldStart}
+                    onPointerUp={handleHoldEnd}
+                    onPointerLeave={handleHoldEnd}
+                    onPointerCancel={handleHoldEnd}
+                    onKeyDown={(e) => {
+                      if (e.key === " " || e.code === "Space") handleHoldStart(e);
+                    }}
+                    onKeyUp={(e) => {
+                      if (e.key === " " || e.code === "Space") handleHoldEnd();
+                    }}
+                    onContextMenu={(e) => e.preventDefault()}
+                    disabled={!supported || analyzing}
+                    aria-label={listening ? "Release to send" : "Hold to record"}
+                    className="relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] transition-transform disabled:opacity-50 touch-none"
+                    style={{ transform: listening ? "scale(1.08)" : undefined }}
                   >
                     {!supported ? (
                       <MicOff className="h-8 w-8" />
@@ -279,9 +307,14 @@ function ChatScreen() {
                   {!supported
                     ? "Voice input not supported. Try Chrome."
                     : listening
-                      ? "Listening… tap to stop"
-                      : "Tap and speak your skills"}
+                      ? "Listening… release to send"
+                      : "Hold to speak"}
                 </p>
+                {supported && (
+                  <p className="text-[11px] text-muted-foreground/70">
+                    Language: {RECOGNITION_LANG_LABELS[lang]}
+                  </p>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
