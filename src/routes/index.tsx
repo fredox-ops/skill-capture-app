@@ -200,62 +200,64 @@ function ChatScreen() {
       </div>
 
       {/* Bottom action area */}
-      <div className="border-t border-border bg-card px-5 pb-6 pt-4">
-        <AnimatePresence mode="wait">
-          {lastUserMessage && !listening ? (
-            <motion.button
-              key="analyze"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              onClick={startAnalysis}
-              disabled={analyzing}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground shadow-[var(--shadow-mic)] active:scale-[0.98] disabled:opacity-70"
-            >
-              <Sparkles className={`h-5 w-5 ${analyzing ? "animate-spin" : ""}`} />
-              {analyzing ? "Analyzing your skills…" : "Analyze My Skills"}
-            </motion.button>
-          ) : (
-            <motion.div
-              key="mic"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-2"
-            >
-              <div className="relative flex h-20 w-20 items-center justify-center">
-                {listening && (
-                  <>
-                    <span className="ripple" />
-                    <span className="ripple delay-1" />
-                    <span className="ripple delay-2" />
-                  </>
-                )}
-                <button
-                  onClick={() => (listening ? stopAndPush() : start())}
-                  disabled={!supported}
-                  aria-label={listening ? "Stop recording" : "Start recording"}
-                  className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] active:scale-95 transition-transform disabled:opacity-50"
-                >
-                  {!supported ? (
-                    <MicOff className="h-8 w-8" />
-                  ) : listening ? (
-                    <Square className="h-7 w-7 fill-current" />
-                  ) : (
-                    <Mic className="h-8 w-8" />
+      <div className="border-t border-border bg-card">
+        <div className="mx-auto w-full max-w-3xl px-5 pb-6 pt-4 sm:px-8">
+          <AnimatePresence mode="wait">
+            {lastUserMessage && !listening ? (
+              <motion.button
+                key="analyze"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                onClick={startAnalysis}
+                disabled={analyzing}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-base font-semibold text-primary-foreground shadow-[var(--shadow-mic)] active:scale-[0.98] disabled:opacity-70"
+              >
+                <Sparkles className={`h-5 w-5 ${analyzing ? "animate-spin" : ""}`} />
+                {analyzing ? "Analyzing your skills…" : "Analyze My Skills"}
+              </motion.button>
+            ) : (
+              <motion.div
+                key="mic"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="relative flex h-20 w-20 items-center justify-center">
+                  {listening && (
+                    <>
+                      <span className="ripple" />
+                      <span className="ripple delay-1" />
+                      <span className="ripple delay-2" />
+                    </>
                   )}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {!supported
-                  ? "Voice input not supported. Try Chrome."
-                  : listening
-                    ? "Listening… tap to stop"
-                    : "Tap and speak your skills"}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                  <button
+                    onClick={() => (listening ? stopAndPush() : start())}
+                    disabled={!supported}
+                    aria-label={listening ? "Stop recording" : "Start recording"}
+                    className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-mic)] active:scale-95 transition-transform disabled:opacity-50"
+                  >
+                    {!supported ? (
+                      <MicOff className="h-8 w-8" />
+                    ) : listening ? (
+                      <Square className="h-7 w-7 fill-current" />
+                    ) : (
+                      <Mic className="h-8 w-8" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {!supported
+                    ? "Voice input not supported. Try Chrome."
+                    : listening
+                      ? "Listening… tap to stop"
+                      : "Tap and speak your skills"}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
