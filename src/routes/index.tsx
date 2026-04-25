@@ -83,6 +83,8 @@ function ChatScreen() {
 
   const profileLang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
 
+  const tts = useSpeech();
+
   // Per-turn language picker — defaults to the profile language but the user
   // can switch on the fly so the recognizer hears them in the language they
   // are actually about to speak. Persisted in localStorage between sessions.
@@ -127,7 +129,6 @@ function ChatScreen() {
     });
   }, [lang]);
 
-  const tts = useSpeech();
 
   // Speak the initial greeting once TTS is ready (and unmuted).
   const greetedRef = useRef(false);
