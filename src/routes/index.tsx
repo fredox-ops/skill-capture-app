@@ -142,23 +142,25 @@ function ChatScreen() {
   return (
     <MobileShell>
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-border bg-card px-5 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <Sparkles className="h-5 w-5" />
+      <header className="border-b border-border bg-card">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold leading-tight sm:text-lg">Sawt-Net</h1>
+              <p className="text-xs text-success">● online</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-base font-bold leading-tight">Sawt-Net</h1>
-            <p className="text-xs text-success">● online</p>
-          </div>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Settings"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
         </div>
-        <button
-          onClick={() => setSettingsOpen(true)}
-          aria-label="Settings"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
-        >
-          <Settings className="h-5 w-5" />
-        </button>
       </header>
 
       {/* Chat area */}
