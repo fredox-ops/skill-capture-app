@@ -335,7 +335,7 @@ function ChatScreen() {
                   className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    dir={isUser ? "auto" : "rtl"}
+                    dir={isUser ? "auto" : lang === "ar-MA" ? "rtl" : "ltr"}
                     className={`relative max-w-[80%] rounded-2xl px-4 py-2.5 text-[15px] leading-snug shadow-sm ${
                       isUser
                         ? "rounded-br-md bg-bubble-user text-bubble-user-foreground"
