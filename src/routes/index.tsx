@@ -163,19 +163,38 @@ function ChatScreen() {
     }
   }, [user, authLoading, navigate]);
 
-  // Show STT error toast — and reveal the text fallback so the user is never
-  // stuck if their connection or mic isn't cooperating.
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-      setShowTextInput(true);
-    }
-  }, [error]);
+  // Localised "weak network" voice messages, played automatically when the
+  // recognizer fails. No reading required — illiterate users hear what
+  // happened and see the mic flash orange + a no-wifi icon.
+  const NETWORK_ERROR_VOICE: Record<RecognitionLang, string> = {
+    "ar-MA": "شبكة الإنترنت ضعيفة. المرجو المحاولة مرة أخرى.",
+    "en-US": "Internet is weak. Please try again.",
+    "fr-FR": "La connexion est faible. Réessayez s'il vous plaît.",
+    "hi-IN": "इंटरनेट कमज़ोर है। कृपया दोबारा कोशिश करें।",
+  };
 
-  // If voice isn't supported at all, surface the text input from the start.
+  // Map the recognizer's machine-readable error code to a fully audio-visual
+  // response. We DO NOT show any text to the user.
   useEffect(() => {
-    if (!supported) setShowTextInput(true);
-  }, [supported]);
+    if (!error) return;
+    const isNetwork = error === "network";
+    setMicWarning(true);
+    // Speak the localised message so non-readers understand what's happening.
+    if (isNetwork) {
+      // Force-unmute briefly so the warning is always heard.
+      const wasMuted = tts.muted;
+      if (wasMuted) tts.toggleMute();
+      tts.speak(NETWORK_ERROR_VOICE[lang], lang, -1);
+      if (wasMuted) {
+        // Re-mute after the message would have finished (~3s).
+        setTimeout(() => tts.toggleMute(), 3500);
+      }
+    }
+    // Auto-clear the orange/shake state after 3.5s — the mic returns to normal.
+    const t = setTimeout(() => setMicWarning(false), 3500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error]);
 
   // Cancel any in-flight speech when the user starts talking again.
   useEffect(() => {
