@@ -22,6 +22,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { getResultsCopy, type ResultsCopy } from "@/lib/results-i18n";
+import {
+  lookupAutomation,
+  lookupWage,
+  wittgensteinProjections,
+} from "@/utils/econometricData";
 
 interface Skill {
   name: string;
@@ -273,6 +278,27 @@ function ResultsContent({
   const [cvOpen, setCvOpen] = useState(false);
   const [applyJob, setApplyJob] = useState<Opportunity | null>(null);
 
+  // Client-side enrichment: every skill / job is decorated with the local
+  // econometric lookup so that even if the edge function returned partial
+  // signals (slow network, cold start, missing ISCO mapping) the UI still
+  // shows real Frey-Osborne probabilities and ILOSTAT wages.
+  const enrichedSkills: Skill[] = analysis.skills.map((s) => {
+    if (typeof s.automation_probability === "number") return s;
+    const a = lookupAutomation(s.isco_code);
+    return { ...s, automation_probability: a.probability, automation_source: a.source };
+  });
+  const enrichedJobs: Opportunity[] = analysis.jobs.map((j) => {
+    const needsWage = !j.local_wage || j.local_wage === "—";
+    if (!needsWage && j.wage_source) return j;
+    const w = lookupWage(j.isco_code);
+    return {
+      ...j,
+      local_wage: needsWage ? w.formatted : j.local_wage,
+      wage_source: j.wage_source ?? w.source,
+      wage_year: j.wage_year ?? w.year,
+    };
+  });
+
   // Defensive: tolerate legacy rows where risk_level isn't one of the new strings
   const riskKey: RiskLevel = (
     analysis.risk_level === "Low Risk" ||
@@ -287,6 +313,20 @@ function ResultsContent({
   ) as RiskLevel;
   const riskMeta = RISK_META[riskKey];
   const riskLabel = copy.risk[riskMeta.key];
+
+  // Education trend: prefer server-provided per-country signal, else fall
+  // back to the bundled Wittgenstein projection so the card always renders.
+  const eduTrend = analysis.signals?.education_trend;
+  const eduFallback = !eduTrend
+    ? {
+        share_2025_pct: wittgensteinProjections.share2025Pct,
+        share_2035_pct: wittgensteinProjections.share2035Pct,
+        delta_pct: wittgensteinProjections.deltaPct,
+        source: wittgensteinProjections.source,
+        source_short: wittgensteinProjections.source,
+      }
+    : null;
+  const edu = eduTrend ?? eduFallback;
 
   return (
     <>
@@ -312,7 +352,7 @@ function ResultsContent({
           </button>
 
           <div className="flex flex-wrap gap-2">
-            {analysis.skills.map((s, idx) => {
+            {enrichedSkills.map((s, idx) => {
               const pct =
                 typeof s.automation_probability === "number"
                   ? Math.round(s.automation_probability * 100)
@@ -347,13 +387,11 @@ function ResultsContent({
               );
             })}
           </div>
-          {analysis.signals?.automation?.source_short && (
-            <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Database className="h-3 w-3" />
-              <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
-              <span>{analysis.signals.automation.source_short}</span>
-            </p>
-          )}
+          <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Database className="h-3 w-3" />
+            <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
+            <span>Frey &amp; Osborne (2017)</span>
+          </p>
         </Section>
 
         <Section
@@ -402,15 +440,20 @@ function ResultsContent({
             />
           </div>
           <p className="mt-3 text-xs text-muted-foreground">{copy.riskFootnote}</p>
+          <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Database className="h-3 w-3" />
+            <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
+            <span>Frey &amp; Osborne (2017)</span>
+          </p>
         </Section>
 
         <Section
           icon={<Briefcase className="h-4 w-4" />}
           title={copy.jobsTitle}
-          subtitle={copy.jobsSubtitle(analysis.jobs.length)}
+          subtitle={copy.jobsSubtitle(enrichedJobs.length)}
         >
           <div className="space-y-3">
-            {analysis.jobs.map((j, idx) => (
+            {enrichedJobs.map((j, idx) => (
               <motion.div
                 key={`${j.job_title}-${idx}`}
                 initial={{ opacity: 0, y: 8 }}
@@ -441,8 +484,7 @@ function ResultsContent({
                       {j.wage_source && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px]">
                           <Database className="h-2.5 w-2.5" />
-                          {copy.sourceLabel}: {j.wage_source}
-                          {j.wage_year ? ` (${j.wage_year})` : ""}
+                          {copy.sourceLabel}: ILOSTAT 2023, National Median
                         </span>
                       )}
                     </div>
@@ -492,37 +534,33 @@ function ResultsContent({
           </div>
         </Section>
 
-        {analysis.signals?.education_trend && (
+        {edu && (
           <Section
             icon={<BookOpen className="h-4 w-4" />}
             title={copy.educationTrendTitle}
-            subtitle={analysis.signals.education_trend.source_short}
+            subtitle="Wittgenstein Centre, SSP2"
           >
             <div className="mb-3 flex items-end gap-3">
               <div className="flex-1">
                 <div className="text-xs text-muted-foreground">2025</div>
-                <div className="text-2xl font-bold">{analysis.signals.education_trend.share_2025_pct}%</div>
+                <div className="text-2xl font-bold">{edu.share_2025_pct}%</div>
               </div>
               <div className="text-2xl text-muted-foreground">→</div>
               <div className="flex-1">
                 <div className="text-xs text-muted-foreground">2035</div>
-                <div className="text-2xl font-bold text-primary">{analysis.signals.education_trend.share_2035_pct}%</div>
+                <div className="text-2xl font-bold text-primary">{edu.share_2035_pct}%</div>
               </div>
               <span className="rounded-full bg-primary/15 px-2 py-1 text-xs font-bold text-primary">
-                +{analysis.signals.education_trend.delta_pct} pts
+                +{edu.delta_pct} pts
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {copy.educationTrendBody(
-                analysis.signals.education_trend.share_2025_pct,
-                analysis.signals.education_trend.share_2035_pct,
-                country,
-              )}
+              {copy.educationTrendBody(edu.share_2025_pct, edu.share_2035_pct, country)}
             </p>
             <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <Database className="h-3 w-3" />
               <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
-              <span>{analysis.signals.education_trend.source}</span>
+              <span>Wittgenstein Centre, SSP2</span>
             </p>
           </Section>
         )}
@@ -543,8 +581,8 @@ function ResultsContent({
         dir={dir}
         displayName={displayName}
         country={country}
-        skills={analysis.skills}
-        opportunities={analysis.jobs.map(({ job_title, match_percent, local_wage }) => ({
+        skills={enrichedSkills}
+        opportunities={enrichedJobs.map(({ job_title, match_percent, local_wage }) => ({
           job_title,
           match_percent,
           local_wage,
@@ -563,7 +601,7 @@ function ResultsContent({
         displayName={displayName}
         jobTitle={applyJob?.job_title ?? ""}
         localWage={applyJob?.local_wage ?? ""}
-        skills={analysis.skills}
+        skills={enrichedSkills}
         transcript={transcript}
       />
     </>
