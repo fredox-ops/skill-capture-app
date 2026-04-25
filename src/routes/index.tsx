@@ -5,6 +5,7 @@ import {
   History as HistoryIcon,
   Mic,
   MicOff,
+  Send,
   Settings,
   Sparkles,
   Square,
@@ -77,9 +78,15 @@ function ChatScreen() {
   const { profile } = useProfile();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [step, setStep] = useState<AnalyzeStep>("idle");
+  const [analyzeAttempt, setAnalyzeAttempt] = useState(0);
   const analyzing = step !== "idle";
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [replying, setReplying] = useState(false);
+  // Text fallback — revealed automatically when the mic is unavailable
+  // (unsupported browser or recognition error like "network"). The user
+  // can also tap "Type instead" to open it manually.
+  const [showTextInput, setShowTextInput] = useState(false);
+  const [typedMessage, setTypedMessage] = useState("");
 
   const profileLang = getRecognitionLang(profile?.language ?? "English", profile?.country ?? "Morocco");
 
@@ -154,10 +161,19 @@ function ChatScreen() {
     }
   }, [user, authLoading, navigate]);
 
-  // Show STT error toast
+  // Show STT error toast — and reveal the text fallback so the user is never
+  // stuck if their connection or mic isn't cooperating.
   useEffect(() => {
-    if (error) toast.error(error);
+    if (error) {
+      toast.error(error);
+      setShowTextInput(true);
+    }
   }, [error]);
+
+  // If voice isn't supported at all, surface the text input from the start.
+  useEffect(() => {
+    if (!supported) setShowTextInput(true);
+  }, [supported]);
 
   // Cancel any in-flight speech when the user starts talking again.
   useEffect(() => {
@@ -167,18 +183,15 @@ function ChatScreen() {
   const userMessageCount = bubbles.filter((b) => b.from === "user").length;
   const canAnalyze = userMessageCount >= MIN_USER_MESSAGES_TO_ANALYZE && !analyzing;
 
-  const stopAndPush = async () => {
-    stop();
-    const text = transcript.trim();
-    if (!text) {
-      reset();
-      return;
-    }
+  // Send a user message (whether typed or spoken) through the chat-followup
+  // edge function. Shared by the mic handler and the text fallback.
+  const sendUserMessage = async (rawText: string) => {
+    const text = rawText.trim();
+    if (!text) return;
 
     const userBubble: Bubble = { id: Date.now(), from: "user", text, speechLang: lang };
     const conversation = [...bubbles, userBubble];
     setBubbles(conversation);
-    reset();
     setReplying(true);
 
     try {
@@ -229,6 +242,22 @@ function ChatScreen() {
     }
   };
 
+  const stopAndPush = async () => {
+    stop();
+    const text = transcript.trim();
+    reset();
+    if (!text) return;
+    await sendUserMessage(text);
+  };
+
+  const handleSendTyped = async () => {
+    const text = typedMessage.trim();
+    if (!text || replying || analyzing) return;
+    setTypedMessage("");
+    tts.unlock();
+    await sendUserMessage(text);
+  };
+
   // ---- Press-and-hold mic handlers ----------------------------------------
   const handleHoldStart = (e: React.PointerEvent | React.KeyboardEvent) => {
     if (!supported || listening || analyzing || replying) return;
@@ -264,6 +293,7 @@ function ChatScreen() {
     };
 
     setStep("saving-transcript");
+    setAnalyzeAttempt(0);
     try {
       const { data: session, error: sessionErr } = await supabase
         .from("voice_sessions")
@@ -277,15 +307,37 @@ function ChatScreen() {
       if (sessionErr) throw sessionErr;
 
       setStep("calling-ai");
-      const { data, error: fnErr } = await supabase.functions.invoke("analyze-skills", {
-        body: {
-          transcript: fullTranscript,
-          country: profile?.country ?? "Morocco",
-          language: languageLabel[conversationLang],
-        },
-      });
-      if (fnErr) throw fnErr;
-      if (data?.error) throw new Error(data.error);
+
+      // Auto-retry the AI call up to 3 attempts (initial + 2 retries) — many
+      // failures on weak 3G are transient timeouts that succeed on retry.
+      const MAX_ATTEMPTS = 3;
+      let lastErr: unknown = null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let aiData: any = null;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        setAnalyzeAttempt(attempt);
+        try {
+          const { data, error: fnErr } = await supabase.functions.invoke("analyze-skills", {
+            body: {
+              transcript: fullTranscript,
+              country: profile?.country ?? "Morocco",
+              language: languageLabel[conversationLang],
+            },
+          });
+          if (fnErr) throw fnErr;
+          if (data?.error) throw new Error(data.error);
+          aiData = data;
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (attempt < MAX_ATTEMPTS) {
+            // Exponential-ish backoff: 1.2s, 2.4s.
+            await new Promise((r) => setTimeout(r, 1200 * attempt));
+          }
+        }
+      }
+      if (!aiData) throw lastErr ?? new Error("Analysis failed");
 
       setStep("saving-results");
       const { data: analysis, error: aErr } = await supabase
@@ -293,10 +345,10 @@ function ChatScreen() {
         .insert({
           user_id: user.id,
           session_id: session.id,
-          skills: data.skills,
-          ai_score: data.ai_risk_score,
-          risk_level: data.ai_risk_level,
-          jobs: data.opportunities,
+          skills: aiData.skills,
+          ai_score: aiData.ai_risk_score,
+          risk_level: aiData.ai_risk_level,
+          jobs: aiData.opportunities,
         })
         .select()
         .single();
@@ -306,15 +358,19 @@ function ChatScreen() {
       navigate({ to: "/results", search: { id: analysis.id } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Analysis failed";
-      toast.error(msg);
+      toast.error(`${msg} — ضعف في الشبكة. حاول مرة أخرى.`);
       setStep("idle");
+      setAnalyzeAttempt(0);
     }
   };
 
   const stepLabel: Record<AnalyzeStep, string> = {
     "idle": "",
     "saving-transcript": "Saving transcript…",
-    "calling-ai": "Calling AI engine…",
+    "calling-ai":
+      analyzeAttempt > 1
+        ? `جاري تحليل البيانات عبر شبكة ضعيفة… (retry ${analyzeAttempt}/3)`
+        : "جاري تحليل البيانات… Calling AI engine…",
     "saving-results": "Saving results…",
   };
 
