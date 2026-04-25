@@ -1,11 +1,10 @@
-// MANUALLY MANAGED — hardcoded to user's personal Supabase project (vlieoxikhjfnaosumvzi)
-// Do NOT regenerate from Lovable Cloud env vars.
+// Lovable Cloud client — points at the managed backend so edge functions
+// (analyze-skills) can be deployed and called automatically.
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = 'https://vlieoxikhjfnaosumvzi.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsaWVveGlraGpmbmFvc3VtdnppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMzM0NzIsImV4cCI6MjA5MjcwOTQ3Mn0.K5pvUku-AjxsipqWaPfkbtmUnSD5NmeKu6VrB7hau5w';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 function createSupabaseClient() {
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
