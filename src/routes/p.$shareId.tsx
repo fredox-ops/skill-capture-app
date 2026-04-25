@@ -96,7 +96,7 @@ function FallbackShell({ title, body }: { title: string; body: string }) {
 }
 
 function PublicProfile() {
-  const analysis = Route.useLoaderData();
+  const analysis = Route.useLoaderData() as AnalysisRow;
   const [copied, setCopied] = useState(false);
 
   // Decorate skills + jobs with the same client-side econometric lookups

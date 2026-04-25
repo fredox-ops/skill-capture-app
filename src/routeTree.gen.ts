@@ -14,6 +14,7 @@ import { Route as PolicyRouteImport } from './routes/policy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PShareIdRouteImport } from './routes/p.$shareId'
 import { Route as AdminConfigsRouteImport } from './routes/admin.configs'
 
 const ResultsRoute = ResultsRouteImport.update({
@@ -41,6 +42,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PShareIdRoute = PShareIdRouteImport.update({
+  id: '/p/$shareId',
+  path: '/p/$shareId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminConfigsRoute = AdminConfigsRouteImport.update({
   id: '/admin/configs',
   path: '/admin/configs',
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/policy': typeof PolicyRoute
   '/results': typeof ResultsRoute
   '/admin/configs': typeof AdminConfigsRoute
+  '/p/$shareId': typeof PShareIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/policy': typeof PolicyRoute
   '/results': typeof ResultsRoute
   '/admin/configs': typeof AdminConfigsRoute
+  '/p/$shareId': typeof PShareIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +79,7 @@ export interface FileRoutesById {
   '/policy': typeof PolicyRoute
   '/results': typeof ResultsRoute
   '/admin/configs': typeof AdminConfigsRoute
+  '/p/$shareId': typeof PShareIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,8 +90,16 @@ export interface FileRouteTypes {
     | '/policy'
     | '/results'
     | '/admin/configs'
+    | '/p/$shareId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/login' | '/policy' | '/results' | '/admin/configs'
+  to:
+    | '/'
+    | '/history'
+    | '/login'
+    | '/policy'
+    | '/results'
+    | '/admin/configs'
+    | '/p/$shareId'
   id:
     | '__root__'
     | '/'
@@ -91,6 +108,7 @@ export interface FileRouteTypes {
     | '/policy'
     | '/results'
     | '/admin/configs'
+    | '/p/$shareId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -100,6 +118,7 @@ export interface RootRouteChildren {
   PolicyRoute: typeof PolicyRoute
   ResultsRoute: typeof ResultsRoute
   AdminConfigsRoute: typeof AdminConfigsRoute
+  PShareIdRoute: typeof PShareIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -139,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/p/$shareId': {
+      id: '/p/$shareId'
+      path: '/p/$shareId'
+      fullPath: '/p/$shareId'
+      preLoaderRoute: typeof PShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/configs': {
       id: '/admin/configs'
       path: '/admin/configs'
@@ -156,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   PolicyRoute: PolicyRoute,
   ResultsRoute: ResultsRoute,
   AdminConfigsRoute: AdminConfigsRoute,
+  PShareIdRoute: PShareIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
