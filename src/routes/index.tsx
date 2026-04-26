@@ -425,7 +425,7 @@ function ChatScreen() {
       tts.cancel();
       setMicWarning(false);
       setMicSuccess(true);
-      setTimeout(() => navigate({ to: "/results", search: { id: analysis.id } }), 600);
+      setTimeout(() => navigate({ to: "/results", search: { id: analysis.id, demo: undefined } }), 600);
     } catch (err) {
       console.error(err);
       // Severe failure → red mic + spoken localised "weak network" message.
