@@ -47,10 +47,42 @@ function LoginScreen() {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }, []);
 
-  useEffect(() => {
-    if (!loading && user) {
-      navigate({ to: "/" });
+  const getPostLoginRoute = async (
+    currentUser: { id: string; email?: string | null } | null,
+  ): Promise<"/" | "/policy"> => {
+    if (!currentUser) return "/";
+    const normalizedEmail = currentUser.email?.toLowerCase() ?? "";
+    if (normalizedEmail === "admin12@gmail.com") {
+      return "/policy";
     }
+
+    const { data, error } = await (supabase as any)
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", currentUser.id);
+    if (error) return "/";
+
+    const roles = (data ?? []).map((r: { role?: string }) => r.role ?? "");
+    if (roles.includes("admin") || roles.includes("policymaker")) {
+      return "/policy";
+    }
+    return "/";
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    if (loading || !user) return;
+
+    (async () => {
+      const destination = await getPostLoginRoute(user);
+      if (!cancelled) {
+        navigate({ to: destination });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, loading, navigate]);
 
   const submit = async (e: React.FormEvent) => {
@@ -70,7 +102,9 @@ function LoginScreen() {
         if (error) throw error;
         toast.success("Welcome back!");
       }
-      navigate({ to: "/" });
+      const { data: authData } = await supabase.auth.getUser();
+      const destination = await getPostLoginRoute(authData.user ?? null);
+      navigate({ to: destination });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       toast.error(msg);
