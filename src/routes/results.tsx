@@ -685,7 +685,100 @@ function Section({
   );
 }
 
-interface ShareProfileSectionProps {
+function AdjacentSkillsSection({
+  iscoCodes,
+  copy,
+}: {
+  iscoCodes: string[];
+  copy: ResultsCopy;
+}) {
+  const suggestion = useMemo(() => lookupAdjacentSkills(iscoCodes), [iscoCodes]);
+  return (
+    <Section
+      icon={<Sprout className="h-4 w-4" />}
+      title={copy.adjacentSkillsTitle}
+      subtitle={copy.adjacentSkillsSubtitle}
+    >
+      <div className="flex flex-wrap gap-2">
+        {suggestion.skills.map((skill, idx) => (
+          <motion.span
+            key={`${skill}-${idx}`}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.05, duration: 0.25 }}
+            className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1.5 text-sm font-semibold text-success shadow-[var(--shadow-card)]"
+          >
+            <Sprout className="h-3.5 w-3.5" />
+            {skill}
+          </motion.span>
+        ))}
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        {copy.adjacentSkillsBody}
+      </p>
+      <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <Database className="h-3 w-3" />
+        <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
+        <span>{suggestion.source}</span>
+      </p>
+    </Section>
+  );
+}
+
+function ItuReadinessSection({
+  country,
+  copy,
+}: {
+  country: string;
+  copy: ResultsCopy;
+}) {
+  const itu = useMemo(() => lookupItuReadiness(country), [country]);
+  const bandLabel = copy.ituBand[itu.band];
+  const bandTone =
+    itu.band === "Established"
+      ? "bg-success/15 text-success"
+      : itu.band === "Growing"
+        ? "bg-primary/15 text-primary"
+        : "bg-warning/15 text-[color:oklch(0.45_0.13_55)]";
+  return (
+    <Section
+      icon={<Wifi className="h-4 w-4" />}
+      title={copy.ituTitle}
+      subtitle={copy.ituSubtitle}
+    >
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <span className="text-5xl font-extrabold tracking-tight text-foreground">
+            {itu.internetUsersPct}
+          </span>
+          <span className="ml-1 text-xl font-bold text-muted-foreground">%</span>
+        </div>
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${bandTone}`}>
+          <Wifi className="h-3 w-3" />
+          {bandLabel}
+        </span>
+      </div>
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${Math.min(100, itu.internetUsersPct)}%` }}
+          transition={{ duration: 1, ease: "easeOut" }}
+          className="h-full rounded-full bg-gradient-to-r from-primary to-[var(--primary-glow)]"
+        />
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        {copy.ituBody(itu.internetUsersPct, country)}
+      </p>
+      <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <Database className="h-3 w-3" />
+        <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
+        <span>{itu.source}</span>
+      </p>
+    </Section>
+  );
+}
+
+
   analysis: Analysis;
   enrichedSkills: Skill[];
   enrichedJobs: Opportunity[];
