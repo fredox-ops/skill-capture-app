@@ -778,8 +778,7 @@ function ItuReadinessSection({
   );
 }
 
-
-  analysis: Analysis;
+interface ShareProfileSectionProps {
   enrichedSkills: Skill[];
   enrichedJobs: Opportunity[];
 }
