@@ -425,7 +425,7 @@ function ChatScreen() {
       tts.cancel();
       setMicWarning(false);
       setMicSuccess(true);
-      setTimeout(() => navigate({ to: "/results", search: { id: analysis.id } }), 600);
+      setTimeout(() => navigate({ to: "/results", search: { id: analysis.id, demo: undefined } }), 600);
     } catch (err) {
       console.error(err);
       // Severe failure → red mic + spoken localised "weak network" message.
@@ -473,8 +473,8 @@ function ChatScreen() {
 
   return (
     <MobileShell>
-      {/* Header — clean, white, no hard borders */}
-      <header className="bg-card/95 backdrop-blur-sm">
+      {/* Header — glassy panel over the galaxy */}
+      <header className="bg-slate-900/40 backdrop-blur-md border-b border-white/10">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex items-center gap-3">
             <div
@@ -483,10 +483,10 @@ function ChatScreen() {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-base font-extrabold leading-tight tracking-tight text-foreground sm:text-lg">
+              <h1 className="text-base font-extrabold leading-tight tracking-tight text-slate-100 sm:text-lg">
                 Sawt-Net
               </h1>
-              <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+              <p className="flex items-center gap-1 text-xs font-medium text-slate-300">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" />
                 online
               </p>
@@ -499,7 +499,7 @@ function ChatScreen() {
                 onClick={tts.toggleMute}
                 aria-label={tts.muted ? "Unmute voice" : "Mute voice"}
                 title={tts.muted ? "Unmute voice" : "Mute voice"}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-accent"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-slate-100 transition hover:bg-white/20"
               >
                 {tts.muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
               </button>
@@ -507,14 +507,14 @@ function ChatScreen() {
             <Link
               to="/history"
               aria-label="History"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-slate-100 transition hover:bg-white/20"
             >
               <HistoryIcon className="h-5 w-5" />
             </Link>
             <button
               onClick={() => setSettingsOpen(true)}
               aria-label="Settings"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-slate-100 transition hover:bg-white/20"
             >
               <Settings className="h-5 w-5" />
             </button>
@@ -522,8 +522,8 @@ function ChatScreen() {
         </div>
       </header>
 
-      {/* Chat area — scrollable, hidden scrollbar, takes all remaining space */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-chat-bg scrollbar-hide">
+      {/* Chat area — transparent so the galaxy shows through */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-transparent scrollbar-hide">
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
           <div className="space-y-3">
             {bubbles.map((b) => {
@@ -539,10 +539,10 @@ function ChatScreen() {
                 >
                   <div
                     dir={isUser ? "auto" : b.direction ?? "ltr"}
-                    className={`relative max-w-[82%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-[var(--shadow-card)] ${
+                    className={`relative max-w-[82%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-[var(--shadow-card)] backdrop-blur-md border ${
                       isUser
-                        ? "rounded-br-md bg-gradient-to-br from-primary to-[var(--primary-glow)] text-bubble-user-foreground"
-                        : "rounded-bl-md bg-bubble-bot text-bubble-bot-foreground"
+                        ? "rounded-br-md bg-gradient-to-br from-primary to-[var(--primary-glow)] text-bubble-user-foreground border-white/10"
+                        : "rounded-bl-md bg-slate-900/50 text-slate-100 border-white/10"
                     }`}
                   >
                     <span className="block font-medium">{b.text}</span>
@@ -588,8 +588,8 @@ function ChatScreen() {
         </div>
       </div>
 
-      {/* Bottom mic dock — floating panel above off-white shell, no hard border */}
-      <div className="relative flex-shrink-0 bg-card shadow-[0_-8px_30px_-12px_oklch(0.22_0.05_250/0.10)]">
+      {/* Bottom mic dock — glassy floating panel above the galaxy */}
+      <div className="relative flex-shrink-0 bg-slate-900/50 backdrop-blur-md border-t border-white/10 shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.5)]">
         {/* Floating Action Button — gated until enough user messages */}
         <button
           onClick={startAnalysis}
@@ -622,7 +622,7 @@ function ChatScreen() {
                   className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold tracking-wide transition-all ${
                     active
                       ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
-                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      : "bg-white/10 text-slate-200 hover:bg-white/20"
                   } disabled:cursor-not-allowed disabled:opacity-50`}
                   aria-pressed={active}
                   aria-label={`Speak in ${RECOGNITION_LANG_LABELS[code]}`}

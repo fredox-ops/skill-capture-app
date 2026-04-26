@@ -1,45 +1,43 @@
-## The real problem
+## Why you don't see it
 
-The Galaxy component is mounted on `/login` correctly, but **the entire stylesheet is failing to compile**, so nothing positions/sizes properly and the canvas never gets a visible box. Dev-server log confirms this on every reload:
+You're on `/` (home), but the Galaxy was only wired into `/login`. On top of that, `MobileShell` uses `bg-app-shell` (a solid light color) which would cover any background sitting behind it anyway. So even if Galaxy were mounted, the shell would paint over it.
 
-```
-[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
-4299 |  @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans...");
-```
+That's the real fix: mount Galaxy as a **fixed, full-viewport background at the root level** (behind everything), and make the shell + cards transparent / glassy so the stars show through.
 
-### Why my previous "fix" did not work
+## Plan
 
-I moved the Google Fonts `@import` to **line 1** of `src/styles.css`. That looked right, but in Tailwind v4 the directive `@import "tailwindcss"` on line 4 gets **inlined at build time** — it expands into thousands of lines of generated utilities. After expansion, the Google Fonts `@import` ends up at line ~4299, *after* tons of `:root`, `@property`, and rule blocks. CSS spec forbids `@import` after other rules, so PostCSS rejects the whole file.
+### 1. Mount Galaxy globally in the root layout
+File: `src/routes/__root.tsx`
 
-Putting `@import url(...)` first in the **source** file does not help, because Tailwind's expansion happens *around* it, not *before* it.
+- Import `Galaxy` from `@/components/Galaxy`.
+- Inside `RootComponent`, render a `fixed inset-0 -z-10` wrapper containing `<Galaxy />` with the exact props you provided (mouseRepulsion, density 1, glowIntensity 0.3, saturation 0, hueShift 140, twinkleIntensity 0.3, rotationSpeed 0.1, repulsionStrength 2, starSpeed 0.5, speed 1, `transparent={false}` so it paints its own deep-space backdrop).
+- Wrap with `<ClientOnly>` (or a mounted-state guard) because `ogl` touches `window` — must not run during SSR.
+- Add a soft dark gradient overlay above it for legibility.
 
-## The fix
+### 2. Make the shell see-through so the galaxy is visible everywhere
+File: `src/components/MobileShell.tsx`
 
-Stop loading the Google Font through CSS. Load it via `<link>` tags in the document head instead — the standard, recommended approach. This removes the `@import url(...)` from the CSS pipeline entirely, so PostCSS has nothing to complain about.
+- Replace `bg-app-shell` with `bg-transparent` (or `bg-slate-950/30 backdrop-blur-[2px]`) so the global Galaxy shows through on every route, not just login.
 
-### Step 1 — `src/styles.css`
-Delete the first two lines (the comment + `@import url("https://fonts.googleapis.com/...")`). Leave the rest untouched.
+### 3. Adapt the home page (`/`) for the dark galaxy background
+File: `src/routes/index.tsx`
 
-### Step 2 — `src/routes/__root.tsx`
-Add Google Fonts preconnect + stylesheet links to the existing `links: [...]` array in the root route's `head()`:
+- Set the page text color to light (`text-slate-100`) on the main container.
+- Convert the primary surfaces (chat bubbles, mic card, header chips, history button) to glassy style: `bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl`.
+- Keep the mic button vivid (its existing primary color works on dark).
+- Loading / empty states get the same glass treatment.
 
-```ts
-links: [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap",
-  },
-  { rel: "stylesheet", href: appCss },
-],
-```
+### 4. Clean up the login route
+File: `src/routes/login.tsx`
 
-### Step 3 — Verify
-- Tail `/tmp/dev-server-logs/dev-server.log` and confirm the `[vite:css][postcss] @import must precede...` error is gone.
-- Confirm `/login` now shows the animated Galaxy starfield behind the login card (teal hue, twinkling stars, mouse repulsion).
-- Confirm Plus Jakarta Sans font is still applied (headings, body).
+- Remove its local `<Galaxy />` block — it's now global.
+- Keep the existing dark text/glass styling so it still looks right.
 
-## Out of scope
-- No changes to `Galaxy.tsx` — the component itself is correct and `ogl` is installed.
-- No changes to `login.tsx` — the integration (absolute fixed background, `-z-10`, gradient overlay) is already correct and will become visible the moment the CSS compiles.
+### 5. Verify
+- Hard-refresh `/` and confirm the animated star field is visible behind the chat UI.
+- Navigate to `/login`, `/history`, `/results` — the same galaxy persists across routes (no re-mount flicker because it lives in `__root`).
+- Confirm no SSR crash (`window is not defined`) thanks to the ClientOnly guard.
+- Check console for WebGL context errors.
+
+## What you'll see after this
+A single, continuous animated galaxy background across the whole app, with your chat UI, login form, and other content floating in glassy cards on top of it — exactly the look in the snippet you pasted.
