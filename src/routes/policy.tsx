@@ -637,17 +637,17 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="glass-card rounded-3xl p-5 text-white">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-teal-400/30 to-cyan-500/30 text-cyan-200 ring-1 ring-cyan-300/20">
             {icon}
           </div>
-          <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+          <h2 className="text-sm font-semibold text-white">{title}</h2>
         </div>
       </div>
       {children}
-      <p className="mt-3 text-[11px] uppercase tracking-wide text-slate-400">
+      <p className="mt-3 text-[11px] uppercase tracking-wide text-white/40">
         Source · {source}
       </p>
     </section>
@@ -667,15 +667,15 @@ function KpiCard({
 }) {
   const toneClass =
     tone === "red"
-      ? "text-red-600"
+      ? "text-rose-300"
       : tone === "green"
-        ? "text-emerald-600"
-        : "text-slate-900";
+        ? "text-emerald-300"
+        : "gradient-text";
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={`mt-1 text-2xl font-semibold ${toneClass}`}>{value}</div>
-      {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
+    <div className="glass-card rounded-3xl p-5 text-white">
+      <div className="text-xs uppercase tracking-wide text-white/55">{label}</div>
+      <div className={`mt-1 text-4xl font-extrabold tracking-tight ${toneClass}`}>{value}</div>
+      {hint && <div className="mt-1 text-xs text-white/55">{hint}</div>}
     </div>
   );
 }
