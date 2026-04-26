@@ -193,6 +193,7 @@ function ResultsScreen() {
 
       <div className="flex-1 overflow-y-auto bg-app-shell" dir={dir}>
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
+          {demo === "1" && <DemoReconfigBanner />}
           {loading ? (
             <ResultsSkeleton copy={copy} />
           ) : !analysis ? (
@@ -211,6 +212,41 @@ function ResultsScreen() {
         </div>
       </div>
     </MobileShell>
+  );
+}
+
+function DemoReconfigBanner() {
+  // Visible only with ?demo=1 — gives the judge a single-glance proof that
+  // wages, automation calibration, education trends and language all come
+  // from the `country_configs` table, not from hardcoded assumptions.
+  // The matching `data-demo-spotlight` attribute on <CountrySwitcher /> gets
+  // a soft pulse ring so the demo banner can point right at it.
+  return (
+    <>
+      <style>{`
+        [data-demo-spotlight="country-switcher"] {
+          position: relative;
+          box-shadow: 0 0 0 0 oklch(0.75 0.13 195 / 0.6);
+          animation: sawtnet-demo-pulse 1.8s ease-out infinite;
+        }
+        @keyframes sawtnet-demo-pulse {
+          0%   { box-shadow: 0 0 0 0 oklch(0.75 0.13 195 / 0.55); }
+          70%  { box-shadow: 0 0 0 12px oklch(0.75 0.13 195 / 0); }
+          100% { box-shadow: 0 0 0 0 oklch(0.75 0.13 195 / 0); }
+        }
+      `}</style>
+      <div className="mb-4 rounded-2xl border border-[color:var(--primary-soft)] bg-[color:var(--primary-soft)]/40 p-3 text-xs text-[color:var(--primary-deep)]">
+        <p className="flex items-start gap-2">
+          <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            <strong>Demo:</strong> switch country in the header — wages,
+            automation calibration, education trends and language all reconfigure
+            from <code className="rounded bg-white/60 px-1 font-mono">country_configs</code>{" "}
+            with zero code changes. Infrastructure, not app.
+          </span>
+        </p>
+      </div>
+    </>
   );
 }
 
