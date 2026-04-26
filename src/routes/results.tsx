@@ -161,22 +161,23 @@ function ResultsScreen() {
   }, [user, id]);
 
   return (
-    <MobileShell>
-      <header className="bg-card/95 backdrop-blur-sm" dir={dir}>
+    <MobileShell transparent>
+      <AuroraBackdrop intensity="subtle" />
+      <header className="relative z-10 border-b border-white/10 bg-white/5 backdrop-blur-xl" dir={dir}>
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex items-center gap-3">
             <Link
               to="/"
               aria-label={copy.back}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted transition hover:bg-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
             >
               <ArrowLeft className={`h-5 w-5 ${dir === "rtl" ? "rotate-180" : ""}`} />
             </Link>
             <div>
-              <h1 className="text-base font-extrabold leading-tight tracking-tight text-foreground">
+              <h1 className="text-base font-extrabold leading-tight tracking-tight gradient-text">
                 {copy.yourProfile}
               </h1>
-              <p className="text-xs font-medium text-muted-foreground">{copy.poweredBy}</p>
+              <p className="text-xs font-medium text-white/55">{copy.poweredBy}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -184,7 +185,7 @@ function ResultsScreen() {
             <Link
               to="/history"
               aria-label={copy.history}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted transition hover:bg-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
             >
               <HistoryIcon className="h-5 w-5" />
             </Link>
@@ -192,7 +193,7 @@ function ResultsScreen() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto bg-app-shell" dir={dir}>
+      <div className="relative z-10 flex-1 overflow-y-auto" dir={dir}>
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
           {demo === "1" && <DemoReconfigBanner />}
           {loading ? (
