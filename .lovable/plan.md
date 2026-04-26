@@ -1,48 +1,45 @@
-## Root Cause
+## The real problem
 
-The dev server log reveals the real issue — and it has nothing to do with the Galaxy component itself:
+The Galaxy component is mounted on `/login` correctly, but **the entire stylesheet is failing to compile**, so nothing positions/sizes properly and the canvas never gets a visible box. Dev-server log confirms this on every reload:
 
 ```
 [vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
 4299 |  @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans...");
 ```
 
-**The entire Tailwind stylesheet is failing to compile.** That's why the page looks broken / unstyled — it's not that Galaxy isn't rendering, it's that no CSS is being applied at all (or only stale cached CSS), so every absolutely-positioned background layer collapses.
+### Why my previous "fix" did not work
 
-In `src/styles.css`, the Google Fonts `@import url(...)` is on line 6 — **after** `@import "tailwindcss"`, `@source "../src"`, and `@import "tw-animate-css"`. Per the CSS spec, **every `@import` rule must precede all other statements**. Once Tailwind v4 expands its utilities inline, the Google Fonts `@import` ends up at line ~4299 of the generated CSS, after thousands of rules — PostCSS rightly rejects it and the whole file fails to build.
+I moved the Google Fonts `@import` to **line 1** of `src/styles.css`. That looked right, but in Tailwind v4 the directive `@import "tailwindcss"` on line 4 gets **inlined at build time** — it expands into thousands of lines of generated utilities. After expansion, the Google Fonts `@import` ends up at line ~4299, *after* tons of `:root`, `@property`, and rule blocks. CSS spec forbids `@import` after other rules, so PostCSS rejects the whole file.
 
-## The Fix
+Putting `@import url(...)` first in the **source** file does not help, because Tailwind's expansion happens *around* it, not *before* it.
 
-**One file change** — reorder `src/styles.css` so the remote Google Fonts `@import url(...)` is the very first statement, before any Tailwind directives:
+## The fix
 
-```css
-/* Plus Jakarta Sans — must be first, before any other CSS statements */
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+Stop loading the Google Font through CSS. Load it via `<link>` tags in the document head instead — the standard, recommended approach. This removes the `@import url(...)` from the CSS pipeline entirely, so PostCSS has nothing to complain about.
 
-@import "tailwindcss" source(none);
-@source "../src";
-@import "tw-animate-css";
+### Step 1 — `src/styles.css`
+Delete the first two lines (the comment + `@import url("https://fonts.googleapis.com/...")`). Leave the rest untouched.
 
-@custom-variant dark (&:is(.dark *));
+### Step 2 — `src/routes/__root.tsx`
+Add Google Fonts preconnect + stylesheet links to the existing `links: [...]` array in the root route's `head()`:
 
-/* …rest of file unchanged… */
+```ts
+links: [
+  { rel: "preconnect", href: "https://fonts.googleapis.com" },
+  { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+  {
+    rel: "stylesheet",
+    href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap",
+  },
+  { rel: "stylesheet", href: appCss },
+],
 ```
 
-That single move unblocks the entire stylesheet, which means:
-- All Tailwind utility classes start applying again
-- The login page's `bg-slate-950`, `absolute inset-0 -z-10`, gradient overlay, etc. all render
-- The Galaxy WebGL canvas (which is already correctly mounted) becomes visible behind the form
+### Step 3 — Verify
+- Tail `/tmp/dev-server-logs/dev-server.log` and confirm the `[vite:css][postcss] @import must precede...` error is gone.
+- Confirm `/login` now shows the animated Galaxy starfield behind the login card (teal hue, twinkling stars, mouse repulsion).
+- Confirm Plus Jakarta Sans font is still applied (headings, body).
 
-## Verification After Approval
-
-1. Tail `/tmp/dev-server-logs/dev-server.log` and confirm the `@import must precede all other statements` PostCSS error is gone.
-2. Reload `/login` and confirm the animated star-field is visible behind the login card.
-3. If for any reason it still doesn't render, capture the browser console with `code--read_console_logs` for any `WebGL`, `ogl`, or `Galaxy` errors and address those (e.g. parent container has zero height, WebGL context lost).
-
-## What I'm NOT changing
-
-- `src/components/Galaxy.tsx` — the component is correct, the shaders compile, the cleanup is safe.
-- `src/routes/login.tsx` — the integration (absolute layer, `-z-10`, gradient overlay) is correct.
-- `ogl` install — already added to `package.json`.
-
-The Galaxy was never broken. The CSS pipeline was broken, which made it look like nothing was on screen.
+## Out of scope
+- No changes to `Galaxy.tsx` — the component itself is correct and `ogl` is installed.
+- No changes to `login.tsx` — the integration (absolute fixed background, `-z-10`, gradient overlay) is already correct and will become visible the moment the CSS compiles.
