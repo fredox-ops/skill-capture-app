@@ -107,7 +107,7 @@ export const Route = createFileRoute("/results")({
 });
 
 function ResultsScreen() {
-  const { id } = Route.useSearch();
+  const { id, demo } = Route.useSearch();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { profile } = useProfile();
