@@ -31,12 +31,13 @@ import { getResultsCopy, type ResultsCopy } from "@/lib/results-i18n";
 import {
   lookupAdjacentSkills,
   lookupAutomation,
+  lookupEducationTrend,
   lookupItuReadiness,
   lookupWage,
-  wittgensteinProjections,
 } from "@/utils/econometricData";
 import { lookupEsco } from "@/utils/escoCrosswalk";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
+import { useCountryConfig } from "@/hooks/useCountryConfig";
 
 interface Skill {
   name: string;
@@ -90,6 +91,7 @@ interface Analysis {
 export const Route = createFileRoute("/results")({
   validateSearch: (search: Record<string, unknown>) => ({
     id: typeof search.id === "string" ? search.id : undefined,
+    demo: search.demo === "1" || search.demo === 1 ? "1" : undefined,
   }),
   head: () => ({
     meta: [
@@ -105,7 +107,7 @@ export const Route = createFileRoute("/results")({
 });
 
 function ResultsScreen() {
-  const { id } = Route.useSearch();
+  const { id, demo } = Route.useSearch();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { profile } = useProfile();
@@ -191,6 +193,7 @@ function ResultsScreen() {
 
       <div className="flex-1 overflow-y-auto bg-app-shell" dir={dir}>
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
+          {demo === "1" && <DemoReconfigBanner />}
           {loading ? (
             <ResultsSkeleton copy={copy} />
           ) : !analysis ? (
@@ -209,6 +212,41 @@ function ResultsScreen() {
         </div>
       </div>
     </MobileShell>
+  );
+}
+
+function DemoReconfigBanner() {
+  // Visible only with ?demo=1 — gives the judge a single-glance proof that
+  // wages, automation calibration, education trends and language all come
+  // from the `country_configs` table, not from hardcoded assumptions.
+  // The matching `data-demo-spotlight` attribute on <CountrySwitcher /> gets
+  // a soft pulse ring so the demo banner can point right at it.
+  return (
+    <>
+      <style>{`
+        [data-demo-spotlight="country-switcher"] {
+          position: relative;
+          box-shadow: 0 0 0 0 oklch(0.75 0.13 195 / 0.6);
+          animation: sawtnet-demo-pulse 1.8s ease-out infinite;
+        }
+        @keyframes sawtnet-demo-pulse {
+          0%   { box-shadow: 0 0 0 0 oklch(0.75 0.13 195 / 0.55); }
+          70%  { box-shadow: 0 0 0 12px oklch(0.75 0.13 195 / 0); }
+          100% { box-shadow: 0 0 0 0 oklch(0.75 0.13 195 / 0); }
+        }
+      `}</style>
+      <div className="mb-4 rounded-2xl border border-[color:var(--primary-soft)] bg-[color:var(--primary-soft)]/40 p-3 text-xs text-[color:var(--primary-deep)]">
+        <p className="flex items-start gap-2">
+          <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            <strong>Demo:</strong> switch country in the header — wages,
+            automation calibration, education trends and language all reconfigure
+            from <code className="rounded bg-white/60 px-1 font-mono">country_configs</code>{" "}
+            with zero code changes. Infrastructure, not app.
+          </span>
+        </p>
+      </div>
+    </>
   );
 }
 
@@ -292,19 +330,25 @@ function ResultsContent({
   const [cvOpen, setCvOpen] = useState(false);
   const [applyJob, setApplyJob] = useState<Opportunity | null>(null);
 
+  // Country-specific calibration (LMIC infrastructure context). Until the
+  // config row arrives, factor defaults to 1.0 (= no adjustment).
+  const countryConfig = useCountryConfig(country);
+  const calibrationFactor = countryConfig?.automation_calibration_factor ?? 1;
+
   // Client-side enrichment: every skill / job is decorated with the local
   // econometric lookup so that even if the edge function returned partial
   // signals (slow network, cold start, missing ISCO mapping) the UI still
-  // shows real Frey-Osborne probabilities and ILOSTAT wages.
+  // shows real Frey-Osborne probabilities and ILOSTAT wages, calibrated for
+  // the active country.
   const enrichedSkills: Skill[] = analysis.skills.map((s) => {
     if (typeof s.automation_probability === "number") return s;
-    const a = lookupAutomation(s.isco_code);
+    const a = lookupAutomation(s.isco_code, calibrationFactor);
     return { ...s, automation_probability: a.probability, automation_source: a.source };
   });
   const enrichedJobs: Opportunity[] = analysis.jobs.map((j) => {
     const needsWage = !j.local_wage || j.local_wage === "—";
     if (!needsWage && j.wage_source) return j;
-    const w = lookupWage(j.isco_code);
+    const w = lookupWage(j.isco_code, country);
     return {
       ...j,
       local_wage: needsWage ? w.formatted : j.local_wage,
@@ -329,15 +373,16 @@ function ResultsContent({
   const riskLabel = copy.risk[riskMeta.key];
 
   // Education trend: prefer server-provided per-country signal, else fall
-  // back to the bundled Wittgenstein projection so the card always renders.
+  // back to the bundled Wittgenstein projection for the active country.
   const eduTrend = analysis.signals?.education_trend;
+  const eduFallbackProj = lookupEducationTrend(country);
   const eduFallback = !eduTrend
     ? {
-        share_2025_pct: wittgensteinProjections.share2025Pct,
-        share_2035_pct: wittgensteinProjections.share2035Pct,
-        delta_pct: wittgensteinProjections.deltaPct,
-        source: wittgensteinProjections.source,
-        source_short: wittgensteinProjections.source,
+        share_2025_pct: eduFallbackProj.share2025Pct,
+        share_2035_pct: eduFallbackProj.share2035Pct,
+        delta_pct: eduFallbackProj.deltaPct,
+        source: eduFallbackProj.source,
+        source_short: eduFallbackProj.source,
       }
     : null;
   const edu = eduTrend ?? eduFallback;
@@ -476,6 +521,18 @@ function ResultsContent({
             <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
             <span>Frey &amp; Osborne (2017)</span>
           </p>
+          {calibrationFactor !== 1 && (
+            <p
+              className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground"
+              title="LMIC infrastructure calibration applied to Frey-Osborne probabilities"
+            >
+              <Sparkles className="h-3 w-3" />
+              <span>
+                Adjusted for {country} infrastructure context (factor{" "}
+                {calibrationFactor.toFixed(2)})
+              </span>
+            </p>
+          )}
         </Section>
 
         <Section
@@ -832,7 +889,7 @@ function ShareProfileSection({
         skills_taxonomy: "ISCO-08 (ILO) + ESCO v1.2 (European Commission)",
         automation: "Frey & Osborne (2017)",
         wages: "ILOSTAT — Mean nominal monthly earnings of employees by occupation",
-        education_trend: wittgensteinProjections.source,
+        education_trend: "Wittgenstein Centre, SSP2",
       },
     }),
     [analysis, enrichedSkills, enrichedJobs, profileUrl],
