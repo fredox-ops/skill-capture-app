@@ -413,6 +413,9 @@ function PolicyDashboard() {
               </div>
             </Card>
 
+            {/* Hero chart: Frey-Osborne vs cohort, grouped bars */}
+            <AutomationRiskChart data={automationByMajor} />
+
             {/* Automation cohort vs Frey-Osborne baseline */}
             <Card
               title="Automation exposure: cohort vs Frey-Osborne baseline"
