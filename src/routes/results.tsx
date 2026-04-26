@@ -27,7 +27,9 @@ import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { getResultsCopy, type ResultsCopy } from "@/lib/results-i18n";
 import {
+  lookupAdjacentSkills,
   lookupAutomation,
+  lookupItuReadiness,
   lookupWage,
   wittgensteinProjections,
 } from "@/utils/econometricData";
