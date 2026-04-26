@@ -444,9 +444,10 @@ function ChatScreen() {
 
   if (authLoading) {
     return (
-      <MobileShell>
-        <div className="flex flex-1 items-center justify-center">
-          <Sparkles className="h-8 w-8 animate-pulse text-primary" />
+      <MobileShell transparent>
+        <AuroraBackdrop intensity="subtle" />
+        <div className="relative z-10 flex flex-1 items-center justify-center">
+          <Sparkles className="h-8 w-8 animate-pulse text-cyan-300" />
         </div>
       </MobileShell>
     );
@@ -458,16 +459,16 @@ function ChatScreen() {
   // and greet them in their tongue thanks to the existing greeting effect).
   if (onboarding && user) {
     return (
-      <MobileShell>
-        <OnboardingFlow
-          onComplete={() => {
-            // Reset the chat's initial bubble so the next render uses the
-            // freshly-detected language. The greeting effect will re-speak
-            // it automatically.
-            greetedRef.current = false;
-            setOnboarding(false);
-          }}
-        />
+      <MobileShell transparent>
+        <AuroraBackdrop intensity="subtle" />
+        <div className="relative z-10 flex flex-1">
+          <OnboardingFlow
+            onComplete={() => {
+              greetedRef.current = false;
+              setOnboarding(false);
+            }}
+          />
+        </div>
       </MobileShell>
     );
   }
