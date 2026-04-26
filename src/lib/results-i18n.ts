@@ -283,6 +283,15 @@ const fr: ResultsCopy = {
   honestLimitsTitle: "Ce que nous ne savons pas",
   honestLimitsBody:
     "Avertissement : Les salaires sont des médianes nationales. Les scores d'automatisation sont basés sur Frey-Osborne et peuvent différer dans les contextes informels des pays à revenu faible et intermédiaire.",
+  adjacentSkillsTitle: "Compétences durables adjacentes",
+  adjacentSkillsSubtitle: "Des pivots qui complètent l'IA, sans la concurrencer",
+  adjacentSkillsBody:
+    "Ces compétences transférables sont proches de ton métier — et restent précieuses face à l'automatisation.",
+  ituTitle: "Surface d'opportunité numérique",
+  ituSubtitle: "ITU DataHub — Personnes utilisant Internet",
+  ituBody: (pct, country) =>
+    `${pct}% des habitants de ${country} utilisent Internet — c'est le marché adressable pour le travail numérique et à distance.`,
+  ituBand: { Emerging: "Émergent", Growing: "En croissance", Established: "Établi" },
 };
 
 const hi: ResultsCopy = {
