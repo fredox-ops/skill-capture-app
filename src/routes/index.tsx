@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { MobileShell } from "@/components/MobileShell";
+import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AudioWave } from "@/components/AudioWave";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
