@@ -1,8 +1,6 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
-import Galaxy from "@/components/Galaxy";
 
 import appCss from "../styles.css?url";
 
@@ -71,36 +69,8 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
-  // Galaxy uses WebGL + window — only mount on client to avoid SSR crash.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   return (
     <AuthProvider>
-      {/* Global animated star-field background — fixed full-viewport, behind everything */}
-      <div
-        aria-hidden="true"
-        className="fixed inset-0 -z-10 overflow-hidden bg-slate-950"
-      >
-        {mounted && (
-          <Galaxy
-            mouseRepulsion
-            mouseInteraction
-            density={1}
-            glowIntensity={0.3}
-            saturation={0}
-            hueShift={140}
-            twinkleIntensity={0.3}
-            rotationSpeed={0.1}
-            repulsionStrength={2}
-            starSpeed={0.5}
-            speed={1}
-            transparent={false}
-          />
-        )}
-        {/* Soft dark overlay for legibility */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-slate-950/30 via-transparent to-slate-950/60" />
-      </div>
       <Outlet />
       <Toaster position="top-center" />
     </AuthProvider>

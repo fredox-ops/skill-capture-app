@@ -186,10 +186,7 @@
   }
 
   html, body {
-    /* Transparent so the global <Galaxy /> star-field in __root.tsx is visible
-       through every route. The dark base color comes from the Galaxy wrapper
-       (`bg-slate-950`). */
-    background-color: transparent;
+    background-color: var(--color-app-shell);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv11";
@@ -208,19 +205,9 @@
   .app-shell {
     width: 100%;
     margin-inline: auto;
-    /* Transparent so the global Galaxy backdrop bleeds through. */
-    background: transparent;
+    background: var(--color-app-shell);
     min-height: 0;
     position: relative;
-  }
-
-  /* Glass card — use on top-level shell elements so they remain legible
-     over the dark Galaxy background while still feeling premium. */
-  .glass-card {
-    background: oklch(0.18 0.04 260 / 0.55);
-    backdrop-filter: blur(14px) saturate(1.2);
-    -webkit-backdrop-filter: blur(14px) saturate(1.2);
-    border: 1px solid oklch(1 0 0 / 0.08);
   }
 
   /* Hide scrollbar but keep scroll functionality */

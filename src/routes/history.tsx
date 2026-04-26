@@ -127,7 +127,7 @@ function HistoryRow({ row }: { row: AnalysisRow }) {
   return (
     <Link
       to="/results"
-      search={{ id: row.id, demo: undefined }}
+      search={{ id: row.id }}
       className="flex items-center gap-3 rounded-2xl bg-card p-4 shadow-[var(--shadow-card)] transition-transform active:scale-[0.99] hover:bg-card/90"
     >
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">

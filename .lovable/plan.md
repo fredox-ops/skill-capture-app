@@ -1,37 +1,45 @@
-## Root cause
+## The real problem
 
-The `<Galaxy />` is mounted correctly in `__root.tsx` inside a `fixed inset-0 -z-10` div, but it is being **painted over by two opaque white layers** that sit *above* it in the stacking context:
+The Galaxy component is mounted on `/login` correctly, but **the entire stylesheet is failing to compile**, so nothing positions/sizes properly and the canvas never gets a visible box. Dev-server log confirms this on every reload:
 
-1. **`html, body` in `src/styles.css` (lines 188–196)** sets `background-color: var(--color-app-shell)` which is near-white. Because the Galaxy wrapper uses `-z-10`, it sits *behind* the body's background paint → the white body covers the entire star-field.
-2. **`.app-shell` utility (lines 205–211)** used by `MobileShell.tsx` paints another opaque white background on top of every route's content area.
+```
+[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+4299 |  @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans...");
+```
 
-Net result: the WebGL canvas is correctly mounted and animating, but you only ever see a flat white/teal page.
+### Why my previous "fix" did not work
 
-## Fix
+I moved the Google Fonts `@import` to **line 1** of `src/styles.css`. That looked right, but in Tailwind v4 the directive `@import "tailwindcss"` on line 4 gets **inlined at build time** — it expands into thousands of lines of generated utilities. After expansion, the Google Fonts `@import` ends up at line ~4299, *after* tons of `:root`, `@property`, and rule blocks. CSS spec forbids `@import` after other rules, so PostCSS rejects the whole file.
 
-### 1. `src/styles.css` — make body transparent on top of the Galaxy
-- Change `html, body { background-color: var(--color-app-shell); ... }` to `background-color: transparent;`
-- Move the off-white `--app-shell` paint to a new `.solid-shell` utility for routes that *need* an opaque background (none currently do — the app is fully chat-driven).
-- Update the `.app-shell` utility (line 205) to `background: transparent;` so route content lets the Galaxy show through.
+Putting `@import url(...)` first in the **source** file does not help, because Tailwind's expansion happens *around* it, not *before* it.
 
-### 2. `src/components/MobileShell.tsx` — confirm transparency
-- Already uses `bg-transparent`, but the inner `app-shell` utility was overriding it. With #1 done, this becomes truly transparent.
+## The fix
 
-### 3. `src/routes/__root.tsx` — keep Galaxy wrapper as the dark base
-- Current wrapper already uses `bg-slate-950` as the canvas fallback color — leave it. With body transparent, this dark slate becomes the visible "void" behind the stars.
-- Keep `transparent={false}` on `<Galaxy />` so the WebGL clear color paints the dark backdrop itself (matches reactbits demo).
+Stop loading the Google Font through CSS. Load it via `<link>` tags in the document head instead — the standard, recommended approach. This removes the `@import url(...)` from the CSS pipeline entirely, so PostCSS has nothing to complain about.
 
-### 4. Glassmorphism contrast fix on `/` (home)
-- Bot bubbles in `src/routes/index.tsx` currently use `bg-bubble-bot` (white, lines ~600+ — visible in the truncated section). With a dark Galaxy backdrop, white-on-white text inside chat bubbles is fine, but the surrounding shell text (`text-foreground` = dark slate) will be invisible on dark.
-- Add `text-slate-100` to top-level shell text in `index.tsx`, `history.tsx`, `results.tsx`, `login.tsx`, and switch any plain card backgrounds to `bg-slate-900/40 backdrop-blur-md border-white/10` for legibility on the star-field.
+### Step 1 — `src/styles.css`
+Delete the first two lines (the comment + `@import url("https://fonts.googleapis.com/...")`). Leave the rest untouched.
 
-## Verification
-- Hard reload `/` — expect to see animated stars behind glassy chat bubbles.
-- Navigate to `/login`, `/history`, `/results` — all routes share the global Galaxy, so all should show the same animated background.
-- Check browser console for any WebGL warnings.
+### Step 2 — `src/routes/__root.tsx`
+Add Google Fonts preconnect + stylesheet links to the existing `links: [...]` array in the root route's `head()`:
 
-## Files to edit
-- `src/styles.css` (body + `.app-shell` background → transparent)
-- `src/components/MobileShell.tsx` (no functional change needed after CSS fix; verify)
-- `src/routes/index.tsx` (text color + bubble glassmorphism on shell elements)
-- `src/routes/login.tsx`, `src/routes/history.tsx`, `src/routes/results.tsx` (text color for legibility on dark)
+```ts
+links: [
+  { rel: "preconnect", href: "https://fonts.googleapis.com" },
+  { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+  {
+    rel: "stylesheet",
+    href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap",
+  },
+  { rel: "stylesheet", href: appCss },
+],
+```
+
+### Step 3 — Verify
+- Tail `/tmp/dev-server-logs/dev-server.log` and confirm the `[vite:css][postcss] @import must precede...` error is gone.
+- Confirm `/login` now shows the animated Galaxy starfield behind the login card (teal hue, twinkling stars, mouse repulsion).
+- Confirm Plus Jakarta Sans font is still applied (headings, body).
+
+## Out of scope
+- No changes to `Galaxy.tsx` — the component itself is correct and `ogl` is installed.
+- No changes to `login.tsx` — the integration (absolute fixed background, `-z-10`, gradient overlay) is already correct and will become visible the moment the CSS compiles.
