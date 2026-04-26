@@ -141,6 +141,15 @@ const en: ResultsCopy = {
   honestLimitsTitle: "What we don't know",
   honestLimitsBody:
     "Disclaimer: Wages are national medians. Automation scores are based on Frey-Osborne and may differ in informal LMIC contexts.",
+  adjacentSkillsTitle: "Adjacent durable skills",
+  adjacentSkillsSubtitle: "Pivots that compound, not compete, with AI",
+  adjacentSkillsBody:
+    "These transferable skills sit close to what you already do — and stay valuable as automation expands.",
+  ituTitle: "Digital opportunity surface",
+  ituSubtitle: "ITU DataHub — Individuals using the Internet",
+  ituBody: (pct, country) =>
+    `${pct}% of people in ${country} use the internet — the addressable market for digital and remote-friendly work.`,
+  ituBand: { Emerging: "Emerging", Growing: "Growing", Established: "Established" },
 };
 
 const ar: ResultsCopy = {
