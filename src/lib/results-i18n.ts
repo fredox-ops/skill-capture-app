@@ -354,6 +354,15 @@ const hi: ResultsCopy = {
   honestLimitsTitle: "हम क्या नहीं जानते",
   honestLimitsBody:
     "अस्वीकरण: वेतन राष्ट्रीय औसत हैं। स्वचालन स्कोर Frey-Osborne पर आधारित हैं और निम्न/मध्यम-आय देशों के अनौपचारिक संदर्भों में भिन्न हो सकते हैं।",
+  adjacentSkillsTitle: "नज़दीकी टिकाऊ स्किल्स",
+  adjacentSkillsSubtitle: "ऐसे बदलाव जो AI के साथ बढ़ें, उससे लड़ें नहीं",
+  adjacentSkillsBody:
+    "ये स्थानांतरणीय स्किल्स आपके मौजूदा काम के पास हैं — और ऑटोमेशन बढ़ने पर भी मूल्यवान बनी रहती हैं।",
+  ituTitle: "डिजिटल अवसर का दायरा",
+  ituSubtitle: "ITU DataHub — इंटरनेट उपयोगकर्ता",
+  ituBody: (pct, country) =>
+    `${country} में ${pct}% लोग इंटरनेट का उपयोग करते हैं — डिजिटल और रिमोट काम के लिए यही बाज़ार है।`,
+  ituBand: { Emerging: "उभरता", Growing: "बढ़ता", Established: "स्थापित" },
 };
 
 const TABLE: Record<ResultsLang, ResultsCopy> = {
