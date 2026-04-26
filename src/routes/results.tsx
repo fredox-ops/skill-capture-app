@@ -294,19 +294,25 @@ function ResultsContent({
   const [cvOpen, setCvOpen] = useState(false);
   const [applyJob, setApplyJob] = useState<Opportunity | null>(null);
 
+  // Country-specific calibration (LMIC infrastructure context). Until the
+  // config row arrives, factor defaults to 1.0 (= no adjustment).
+  const countryConfig = useCountryConfig(country);
+  const calibrationFactor = countryConfig?.automation_calibration_factor ?? 1;
+
   // Client-side enrichment: every skill / job is decorated with the local
   // econometric lookup so that even if the edge function returned partial
   // signals (slow network, cold start, missing ISCO mapping) the UI still
-  // shows real Frey-Osborne probabilities and ILOSTAT wages.
+  // shows real Frey-Osborne probabilities and ILOSTAT wages, calibrated for
+  // the active country.
   const enrichedSkills: Skill[] = analysis.skills.map((s) => {
     if (typeof s.automation_probability === "number") return s;
-    const a = lookupAutomation(s.isco_code);
+    const a = lookupAutomation(s.isco_code, calibrationFactor);
     return { ...s, automation_probability: a.probability, automation_source: a.source };
   });
   const enrichedJobs: Opportunity[] = analysis.jobs.map((j) => {
     const needsWage = !j.local_wage || j.local_wage === "—";
     if (!needsWage && j.wage_source) return j;
-    const w = lookupWage(j.isco_code);
+    const w = lookupWage(j.isco_code, country);
     return {
       ...j,
       local_wage: needsWage ? w.formatted : j.local_wage,
@@ -331,15 +337,16 @@ function ResultsContent({
   const riskLabel = copy.risk[riskMeta.key];
 
   // Education trend: prefer server-provided per-country signal, else fall
-  // back to the bundled Wittgenstein projection so the card always renders.
+  // back to the bundled Wittgenstein projection for the active country.
   const eduTrend = analysis.signals?.education_trend;
+  const eduFallbackProj = lookupEducationTrend(country);
   const eduFallback = !eduTrend
     ? {
-        share_2025_pct: wittgensteinProjections.share2025Pct,
-        share_2035_pct: wittgensteinProjections.share2035Pct,
-        delta_pct: wittgensteinProjections.deltaPct,
-        source: wittgensteinProjections.source,
-        source_short: wittgensteinProjections.source,
+        share_2025_pct: eduFallbackProj.share2025Pct,
+        share_2035_pct: eduFallbackProj.share2035Pct,
+        delta_pct: eduFallbackProj.deltaPct,
+        source: eduFallbackProj.source,
+        source_short: eduFallbackProj.source,
       }
     : null;
   const edu = eduTrend ?? eduFallback;
