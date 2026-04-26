@@ -331,6 +331,14 @@ function PolicyDashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-6 px-6 py-6">
+        <GrainientHero
+          badge="Open Infrastructure · Live cohort"
+          title={`${kpis.n.toLocaleString()} youth profiles, mapped to real economic signals`}
+          subtitle={`Aggregate, anonymised view of skill supply, automation exposure (Frey-Osborne) and wage gaps (ILOSTAT) for ${
+            country === "All" ? "all configured countries" : country
+          }.`}
+        />
+
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}
