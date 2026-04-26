@@ -59,7 +59,10 @@ export function CountrySwitcher() {
   };
 
   return (
-    <label className="inline-flex items-center gap-2 rounded-full bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-[var(--shadow-card)]">
+    <label
+      data-demo-spotlight="country-switcher"
+      className="inline-flex items-center gap-2 rounded-full bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-[var(--shadow-card)]"
+    >
       <Globe className="h-3.5 w-3.5 text-[color:var(--primary-deep)]" />
       <span className="sr-only">Country</span>
       <select
