@@ -341,6 +341,30 @@ function PolicyDashboard() {
           }.`}
         />
 
+        {/* Data provenance marquee — silently reinforces the data-grounded claim. */}
+        <div className="overflow-hidden rounded-full border border-white/10 bg-white/5 py-2 backdrop-blur-md">
+          <div className="sources-marquee text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
+            {Array.from({ length: 2 }).map((_, dup) => (
+              <div key={dup} className="flex shrink-0 items-center gap-8 px-8">
+                {[
+                  "ISCO-08 · ILO",
+                  "Frey & Osborne 2017",
+                  "ILOSTAT 2023",
+                  "Wittgenstein SSP2 · 2035",
+                  "ESCO v1.2",
+                  "ITU ICT Data Hub",
+                  "World Bank Jobs Indicators",
+                ].map((s) => (
+                  <span key={s} className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                    {s}
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}
