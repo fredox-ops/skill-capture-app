@@ -7,6 +7,7 @@ import { MobileShell } from "@/components/MobileShell";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
+import Galaxy from "@/components/Galaxy";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -71,7 +72,24 @@ function LoginScreen() {
 
   return (
     <MobileShell>
-      <div className="flex flex-1 flex-col px-6 pt-12 pb-8">
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-slate-950">
+        <Galaxy
+          mouseRepulsion
+          mouseInteraction
+          density={1}
+          glowIntensity={0.4}
+          saturation={0.6}
+          hueShift={180}
+          twinkleIntensity={0.4}
+          rotationSpeed={0.08}
+          repulsionStrength={2}
+          starSpeed={0.5}
+          speed={1}
+          transparent={false}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-slate-950/10 to-slate-950/70" />
+      </div>
+      <div className="relative flex flex-1 flex-col px-6 pt-12 pb-8 text-foreground">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}

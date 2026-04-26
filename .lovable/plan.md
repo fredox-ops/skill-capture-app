@@ -1,42 +1,29 @@
-## Audit-driven polish for UNMAPPED submission
+## Galaxy Component Integration Plan
 
-The app already satisfies every required bar in the brief. These three small fixes close the remaining visible gaps so judges can't ding you for them.
+The user is currently on `/login` — I'll integrate the Galaxy WebGL star-field as a premium ambient background there (perfect "million-dollar SaaS" feel for the auth screen). I'll also expose it as a reusable component so we can drop it elsewhere (e.g. policymaker hero, landing) later.
 
-### Fix 1 — Multi-country client-side wage & education fallback
-**Why:** `src/utils/econometricData.ts` currently hardcodes Morocco (MAD) wages and a single Wittgenstein projection. If the edge function returns partial data for a Ghana/India/Kenya user, the UI silently shows MAD — contradicting the country-agnostic claim.
+### 1. Install dependency
+- `bun add ogl` (WebGL micro-library, ~12KB, Worker-safe since it only runs client-side inside `useEffect`).
 
-**Change:**
-- Restructure `iloWagesData` and `wageMajorBaseline` into `Record<countryIso3, …>` keyed by Morocco/India/Ghana/Kenya, mirroring `supabase/functions/_shared/econ-data/ilo-wages.json`.
-- Restructure `wittgensteinProjections` into per-country object, mirroring `wittgenstein-2035.json`.
-- Update `lookupWage(iscoCode, country)` and add `lookupEducationTrend(country)` signatures.
-- Update callers in `src/routes/results.tsx` to pass the active country from `useProfile()`.
+### 2. Create the component (TypeScript-adapted)
+**`src/components/Galaxy.tsx`** — port the provided JSX to TSX:
+- Convert prop signature to a typed `GalaxyProps` interface (focal/rotation as `[number, number]` tuples, all numeric/boolean props typed).
+- Keep shaders and `useEffect` logic byte-identical.
+- Guard against SSR: bail early if `typeof window === "undefined"` (TanStack Start renders this route on the server).
+- Inline the 3 lines of CSS via a `style` prop on the container — avoids creating a separate `Galaxy.css` file and keeps the component self-contained.
 
-### Fix 2 — Apply `automation_calibration_factor` at lookup
-**Why:** The DB column exists and the brief explicitly says "automation risk looks different in Kampala than in Kuala Lumpur". Right now we store the factor but don't visibly apply it.
+### 3. Wire it into `/login`
+**`src/routes/login.tsx`**:
+- Add an absolutely-positioned `<Galaxy />` layer behind the existing login card (`absolute inset-0 -z-10` with `pointer-events-none` so the form remains fully interactive).
+- Use props tuned for the brand: `hueShift={180}` (teal/cyan to match our palette), `density={1}`, `glowIntensity={0.4}`, `saturation={0.6}`, `twinkleIntensity={0.4}`, `mouseRepulsion`, `transparent`.
+- Darken the existing background slightly (e.g. `bg-slate-950/40`) so stars pop without breaking legibility.
+- Respect `prefers-reduced-motion`: pass `disableAnimation` based on a `matchMedia` check.
 
-**Change:**
-- Extend `lookupAutomation()` to accept an optional `calibrationFactor` and clamp `probability * factor` to [0, 1].
-- Pull the factor from `country_configs` via a small `useCountryConfig()` hook (cached) and pass it through on the results page.
-- Show a one-line provenance note: *"Adjusted for {country} infrastructure context (factor {x})"* under the gauge so judges see the calibration is real, not cosmetic.
+### 4. Verification
+- Run `bunx tsc --noEmit` to confirm types compile.
+- Visit `/login` to verify: stars render, form remains clickable, no console errors, no SSR hydration mismatch.
 
-### Fix 3 — Reconfig demo banner
-**Why:** The brief: *"show what it would take to reconfigure for a second context."* The switcher works, but there's no scripted moment that makes the reconfiguration legible during a 3-minute demo.
-
-**Change:**
-- Add a tiny dismissible banner above the results page (visible only when `?demo=1` is in the URL) reading: *"Demo: switch country in the header — wages, automation calibration, education trends, and language all reconfigure from `country_configs` with zero code changes."*
-- Add a `data-demo-spotlight` attribute on the `CountrySwitcher` so the banner can highlight it with a soft pulse ring.
-
-### Out of scope (intentionally)
-- Expanding ESCO crosswalk beyond the current ~10 occupations (diminishing returns for demo).
-- Adding O*NET / WB STEP — you already exceed the "≥2 signals" bar with 4 sources.
-- Removing the duplicated ITU readiness data (low risk; both sources agree today).
-
-### Files touched
-- `src/utils/econometricData.ts` (restructure + signatures)
-- `src/routes/results.tsx` (pass country, render calibration note + demo banner)
-- `src/hooks/useCountryConfig.tsx` (new — cached fetch of active country's config row)
-- `src/components/CountrySwitcher.tsx` (add `data-demo-spotlight`)
-
-### Verification
-- Manual: switch Morocco → Ghana in the header on the results page; confirm wages flip MAD→GHS, calibration note updates, education card shows Ghana trend.
-- Open `/results?demo=1` and confirm banner + switcher pulse appear.
+### Notes / honest limits
+- The original snippet is JSX; I'll convert to TSX (project is strict TS). Shader strings stay identical.
+- `ogl` is pure ESM and Worker-safe at *bundle* time, but it touches `window`/WebGL — the component must only mount client-side. The `useEffect` guard handles this naturally; no SSR work needed since the canvas is created inside the effect.
+- Not adding it to `/policy` in this pass — that route already has the `GrainientHero`. If you want Galaxy *instead* of (or layered with) Grainient on `/policy`, say the word and I'll swap it after this lands.
