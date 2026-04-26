@@ -485,6 +485,18 @@ function ResultsContent({
             <span className="font-semibold uppercase tracking-wide">{copy.sourceLabel}:</span>
             <span>Frey &amp; Osborne (2017)</span>
           </p>
+          {calibrationFactor !== 1 && (
+            <p
+              className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground"
+              title="LMIC infrastructure calibration applied to Frey-Osborne probabilities"
+            >
+              <Sparkles className="h-3 w-3" />
+              <span>
+                Adjusted for {country} infrastructure context (factor{" "}
+                {calibrationFactor.toFixed(2)})
+              </span>
+            </p>
+          )}
         </Section>
 
         <Section
