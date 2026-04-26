@@ -212,6 +212,15 @@ const ar: ResultsCopy = {
   honestLimitsTitle: "آش ما كنعرفوش",
   honestLimitsBody:
     "تنبيه: الأجور هي المعدل الوطني. سكور الأتمتة مبني على Frey-Osborne وقد يختلف في السياقات غير الرسمية للدول النامية.",
+  adjacentSkillsTitle: "مهارات قريبة وصعب يعوّضها AI",
+  adjacentSkillsSubtitle: "تحوّلات تكمّل الذكاء الاصطناعي ما كتنافسوش",
+  adjacentSkillsBody:
+    "هاد المهارات قريبة لخدمتك، وكتبقى مطلوبة حتى مع توسّع الأتمتة.",
+  ituTitle: "حجم الفرصة الرقمية",
+  ituSubtitle: "ITU DataHub — استعمال الإنترنت",
+  ituBody: (pct, country) =>
+    `${pct}% من ساكنة ${country} كيستعملو الإنترنت — هاد هو السوق ديال الخدمة الرقمية وعن بعد.`,
+  ituBand: { Emerging: "ناشئ", Growing: "نامي", Established: "راسخ" },
 };
 
 const fr: ResultsCopy = {
