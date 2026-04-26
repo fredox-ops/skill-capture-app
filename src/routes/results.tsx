@@ -31,12 +31,13 @@ import { getResultsCopy, type ResultsCopy } from "@/lib/results-i18n";
 import {
   lookupAdjacentSkills,
   lookupAutomation,
+  lookupEducationTrend,
   lookupItuReadiness,
   lookupWage,
-  wittgensteinProjections,
 } from "@/utils/econometricData";
 import { lookupEsco } from "@/utils/escoCrosswalk";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
+import { useCountryConfig } from "@/hooks/useCountryConfig";
 
 interface Skill {
   name: string;
@@ -90,6 +91,7 @@ interface Analysis {
 export const Route = createFileRoute("/results")({
   validateSearch: (search: Record<string, unknown>) => ({
     id: typeof search.id === "string" ? search.id : undefined,
+    demo: search.demo === "1" || search.demo === 1 ? "1" : undefined,
   }),
   head: () => ({
     meta: [
