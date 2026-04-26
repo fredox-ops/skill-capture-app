@@ -779,6 +779,7 @@ function ItuReadinessSection({
 }
 
 interface ShareProfileSectionProps {
+  analysis: Analysis;
   enrichedSkills: Skill[];
   enrichedJobs: Opportunity[];
 }
