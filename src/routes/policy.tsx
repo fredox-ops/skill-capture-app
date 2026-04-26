@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
+import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import {
   COUNTRY_TO_ISO3,
   FREY_BASELINE_BY_MAJOR,
@@ -282,26 +283,27 @@ function PolicyDashboard() {
   }
 
   return (
-    <div className="min-h-dvh bg-slate-50 text-slate-900">
+    <div className="relative min-h-dvh text-white">
+      <AuroraBackdrop intensity="rich" />
       {/* Header */}
-      <header className="border-b border-slate-200 bg-white">
+      <header className="relative z-10 border-b border-white/10 bg-white/5 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
           <div className="flex items-center gap-3">
             <Link
               to="/"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
               aria-label="Back to app"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div>
               <div className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-emerald-600" />
-                <h1 className="text-lg font-semibold tracking-tight">
+                <ShieldCheck className="h-5 w-5 text-cyan-300" />
+                <h1 className="text-lg font-semibold tracking-tight gradient-text">
                   Policymaker Dashboard
                 </h1>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-white/55">
                 Aggregate, anonymised view across {kpis.n} analysed youth profiles.
               </p>
             </div>
@@ -310,10 +312,10 @@ function PolicyDashboard() {
             <select
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="h-9 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
             >
               {countriesPresent.map((c) => (
-                <option key={c} value={c}>
+                <option key={c} value={c} className="bg-slate-900 text-white">
                   {c}
                 </option>
               ))}
@@ -321,7 +323,7 @@ function PolicyDashboard() {
             <button
               onClick={downloadCsv}
               disabled={!filtered.length}
-              className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-gradient-to-br from-teal-400 to-cyan-500 px-3 text-sm font-medium text-white shadow-[0_8px_24px_-8px_rgba(34,211,238,0.55)] hover:brightness-110 disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
               Export CSV
@@ -330,7 +332,7 @@ function PolicyDashboard() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-6 py-6">
+      <main className="relative z-10 mx-auto max-w-7xl space-y-6 px-6 py-6">
         <GrainientHero
           badge="Open Infrastructure · Live cohort"
           title={`${kpis.n.toLocaleString()} youth profiles, mapped to real economic signals`}
@@ -338,6 +340,30 @@ function PolicyDashboard() {
             country === "All" ? "all configured countries" : country
           }.`}
         />
+
+        {/* Data provenance marquee — silently reinforces the data-grounded claim. */}
+        <div className="overflow-hidden rounded-full border border-white/10 bg-white/5 py-2 backdrop-blur-md">
+          <div className="sources-marquee text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
+            {Array.from({ length: 2 }).map((_, dup) => (
+              <div key={dup} className="flex shrink-0 items-center gap-8 px-8">
+                {[
+                  "ISCO-08 · ILO",
+                  "Frey & Osborne 2017",
+                  "ILOSTAT 2023",
+                  "Wittgenstein SSP2 · 2035",
+                  "ESCO v1.2",
+                  "ITU ICT Data Hub",
+                  "World Bank Jobs Indicators",
+                ].map((s) => (
+                  <span key={s} className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                    {s}
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
 
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -635,17 +661,17 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="glass-card rounded-3xl p-5 text-white">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-teal-400/30 to-cyan-500/30 text-cyan-200 ring-1 ring-cyan-300/20">
             {icon}
           </div>
-          <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+          <h2 className="text-sm font-semibold text-white">{title}</h2>
         </div>
       </div>
       {children}
-      <p className="mt-3 text-[11px] uppercase tracking-wide text-slate-400">
+      <p className="mt-3 text-[11px] uppercase tracking-wide text-white/40">
         Source · {source}
       </p>
     </section>
@@ -665,15 +691,15 @@ function KpiCard({
 }) {
   const toneClass =
     tone === "red"
-      ? "text-red-600"
+      ? "text-rose-300"
       : tone === "green"
-        ? "text-emerald-600"
-        : "text-slate-900";
+        ? "text-emerald-300"
+        : "gradient-text";
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={`mt-1 text-2xl font-semibold ${toneClass}`}>{value}</div>
-      {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
+    <div className="glass-card rounded-3xl p-5 text-white">
+      <div className="text-xs uppercase tracking-wide text-white/55">{label}</div>
+      <div className={`mt-1 text-4xl font-extrabold tracking-tight ${toneClass}`}>{value}</div>
+      {hint && <div className="mt-1 text-xs text-white/55">{hint}</div>}
     </div>
   );
 }

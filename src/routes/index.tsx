@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { MobileShell } from "@/components/MobileShell";
+import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { SettingsModal } from "@/components/SettingsModal";
 import { AudioWave } from "@/components/AudioWave";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
@@ -443,9 +444,10 @@ function ChatScreen() {
 
   if (authLoading) {
     return (
-      <MobileShell>
-        <div className="flex flex-1 items-center justify-center">
-          <Sparkles className="h-8 w-8 animate-pulse text-primary" />
+      <MobileShell transparent>
+        <AuroraBackdrop intensity="subtle" />
+        <div className="relative z-10 flex flex-1 items-center justify-center">
+          <Sparkles className="h-8 w-8 animate-pulse text-cyan-300" />
         </div>
       </MobileShell>
     );
@@ -457,38 +459,42 @@ function ChatScreen() {
   // and greet them in their tongue thanks to the existing greeting effect).
   if (onboarding && user) {
     return (
-      <MobileShell>
-        <OnboardingFlow
-          onComplete={() => {
-            // Reset the chat's initial bubble so the next render uses the
-            // freshly-detected language. The greeting effect will re-speak
-            // it automatically.
-            greetedRef.current = false;
-            setOnboarding(false);
-          }}
-        />
+      <MobileShell transparent>
+        <AuroraBackdrop intensity="subtle" />
+        <div className="relative z-10 flex flex-1">
+          <OnboardingFlow
+            onComplete={() => {
+              greetedRef.current = false;
+              setOnboarding(false);
+            }}
+          />
+        </div>
       </MobileShell>
     );
   }
 
   return (
-    <MobileShell>
-      {/* Header — clean, white, no hard borders */}
-      <header className="bg-card/95 backdrop-blur-sm">
+    <MobileShell transparent>
+      <AuroraBackdrop intensity="subtle" />
+
+      {/* Header — glass strip floating over aurora */}
+      <header className="relative z-10 border-b border-white/10 bg-white/5 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex items-center gap-3">
-            <div
-              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-[var(--primary-glow)] text-primary-foreground shadow-[var(--shadow-card)]"
-            >
+            <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 text-white shadow-[0_8px_24px_-8px_rgba(34,211,238,0.55)]">
               <Sparkles className="h-5 w-5" />
+              <span className="absolute inset-0 rounded-2xl bg-white/10 mix-blend-overlay" />
             </div>
             <div>
-              <h1 className="text-base font-extrabold leading-tight tracking-tight text-foreground sm:text-lg">
+              <h1 className="text-base font-extrabold leading-tight tracking-tight text-white sm:text-lg">
                 Sawt-Net
               </h1>
-              <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" />
-                online
+              <p className="flex items-center gap-1.5 text-xs font-medium text-white/60">
+                <span className="relative inline-flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                </span>
+                online · voice-first
               </p>
             </div>
           </div>
@@ -499,7 +505,7 @@ function ChatScreen() {
                 onClick={tts.toggleMute}
                 aria-label={tts.muted ? "Unmute voice" : "Mute voice"}
                 title={tts.muted ? "Unmute voice" : "Mute voice"}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-accent"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
               >
                 {tts.muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
               </button>
@@ -507,14 +513,14 @@ function ChatScreen() {
             <Link
               to="/history"
               aria-label="History"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
             >
               <HistoryIcon className="h-5 w-5" />
             </Link>
             <button
               onClick={() => setSettingsOpen(true)}
               aria-label="Settings"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
             >
               <Settings className="h-5 w-5" />
             </button>
@@ -522,8 +528,8 @@ function ChatScreen() {
         </div>
       </header>
 
-      {/* Chat area — scrollable, hidden scrollbar, takes all remaining space */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-chat-bg scrollbar-hide">
+      {/* Chat area */}
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide">
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
           <div className="space-y-3">
             {bubbles.map((b) => {
@@ -539,15 +545,15 @@ function ChatScreen() {
                 >
                   <div
                     dir={isUser ? "auto" : b.direction ?? "ltr"}
-                    className={`relative max-w-[82%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-[var(--shadow-card)] ${
+                    className={`relative max-w-[82%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
                       isUser
-                        ? "rounded-br-md bg-gradient-to-br from-primary to-[var(--primary-glow)] text-bubble-user-foreground"
-                        : "rounded-bl-md bg-bubble-bot text-bubble-bot-foreground"
+                        ? "rounded-br-md bg-gradient-to-br from-teal-400 to-cyan-500 text-white shadow-[0_10px_30px_-10px_rgba(34,211,238,0.55)]"
+                        : "rounded-bl-md glass-card text-white"
                     }`}
                   >
                     <span className="block font-medium">{b.text}</span>
                     {isSpeaking && (
-                      <span className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-primary">
+                      <span className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-cyan-300">
                         <AudioWave />
                         <span>Speaking…</span>
                       </span>
@@ -560,7 +566,7 @@ function ChatScreen() {
                           if (tts.muted) tts.toggleMute();
                           setTimeout(() => tts.speak(b.text, b.speechLang ?? lang, b.id), 50);
                         }}
-                        className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary/80 transition hover:text-primary"
+                        className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold text-cyan-300/90 transition hover:text-cyan-200"
                         aria-label="Play reply audio"
                       >
                         <Play className="h-3 w-3" />
@@ -574,7 +580,7 @@ function ChatScreen() {
 
             {listening && (transcript || interim) && (
               <div className="flex justify-end">
-                <div className="max-w-[82%] rounded-2xl rounded-br-md bg-gradient-to-br from-primary/80 to-[var(--primary-glow)]/80 px-4 py-3 text-[15px] font-medium text-bubble-user-foreground shadow-[var(--shadow-card)]">
+                <div className="shimmer-border max-w-[82%] rounded-2xl rounded-br-md bg-gradient-to-br from-teal-400/90 to-cyan-500/90 px-4 py-3 text-[15px] font-medium text-white shadow-[0_10px_30px_-10px_rgba(34,211,238,0.55)]">
                   {transcript}
                   {interim && <span className="italic opacity-80"> {interim}</span>}
                   <span className="ml-1 inline-block h-3 w-0.5 animate-pulse bg-white" />
@@ -588,8 +594,8 @@ function ChatScreen() {
         </div>
       </div>
 
-      {/* Bottom mic dock — floating panel above off-white shell, no hard border */}
-      <div className="relative flex-shrink-0 bg-card shadow-[0_-8px_30px_-12px_oklch(0.22_0.05_250/0.10)]">
+      {/* Bottom mic dock — glass panel above aurora */}
+      <div className="relative z-10 flex-shrink-0 border-t border-white/10 bg-white/5 backdrop-blur-2xl">
         {/* Floating Action Button — gated until enough user messages */}
         <button
           onClick={startAnalysis}
@@ -597,8 +603,8 @@ function ChatScreen() {
           aria-label="Analyze My Skills"
           className={`absolute -top-7 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full transition-all ${
             canAnalyze
-              ? "fab-pulse bg-gradient-to-br from-primary to-[var(--primary-glow)] text-primary-foreground"
-              : "cursor-not-allowed bg-muted text-muted-foreground opacity-60 shadow-[var(--shadow-card)]"
+              ? "fab-pulse bg-gradient-to-br from-teal-400 to-cyan-500 text-white"
+              : "cursor-not-allowed border border-white/10 bg-white/5 text-white/40 opacity-70"
           }`}
         >
           {analyzing ? (
@@ -609,7 +615,7 @@ function ChatScreen() {
         </button>
 
         <div className="mx-auto w-full max-w-3xl px-5 pb-7 pt-7 sm:px-8">
-          {/* Per-turn language picker — pill tags */}
+          {/* Per-turn language picker — glass pills */}
           <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
             {(Object.keys(RECOGNITION_LANG_LABELS) as RecognitionLang[]).map((code) => {
               const active = lang === code;
@@ -619,11 +625,11 @@ function ChatScreen() {
                   type="button"
                   onClick={() => pickLang(code)}
                   disabled={listening || analyzing}
-                  className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold tracking-wide transition-all ${
+                  className={`rounded-full border px-3.5 py-1.5 text-[11px] font-semibold tracking-wide transition-all ${
                     active
-                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
-                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                      ? "border-cyan-300/40 bg-gradient-to-br from-teal-400 to-cyan-500 text-white shadow-[0_4px_18px_-4px_rgba(34,211,238,0.55)]"
+                      : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                  } disabled:cursor-not-allowed disabled:opacity-40`}
                   aria-pressed={active}
                   aria-label={`Speak in ${RECOGNITION_LANG_LABELS[code]}`}
                 >
@@ -633,15 +639,15 @@ function ChatScreen() {
             })}
           </div>
 
-          {/* "Wait for signal" overlay — large pulsing radar shown while the
-              analyze pipeline is running. */}
+          {/* Analyze pipeline — clean conic spinner replaces Loader2 */}
           {analyzing && (
             <div className="mb-4 flex flex-col items-center gap-2">
-              <div className="relative flex h-16 w-16 items-center justify-center">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/30" />
-                <span className="absolute inline-flex h-2/3 w-2/3 animate-ping rounded-full bg-primary/40 [animation-delay:300ms]" />
-                <Loader2 className="relative h-8 w-8 animate-spin text-primary" />
-              </div>
+              <div className="conic-spinner" aria-hidden="true" />
+              {analyzeAttempt > 1 && (
+                <span className="text-[11px] font-medium text-white/60">
+                  retry {analyzeAttempt} of 3
+                </span>
+              )}
             </div>
           )}
 
@@ -654,29 +660,15 @@ function ChatScreen() {
               className="flex flex-col items-center gap-3"
             >
               <div className="relative flex h-24 w-24 items-center justify-center">
-                {/* Multi-layer radar — only while listening, only on the safe state */}
-                {listening && !micWarning && !micError && !micSuccess && (
-                  <>
-                    <motion.span
-                      className="absolute h-24 w-24 rounded-full border-2 border-primary/60"
-                      initial={{ scale: 0.95, opacity: 0.7 }}
-                      animate={{ scale: 2.4, opacity: 0 }}
-                      transition={{ duration: 2, repeat: Infinity, ease: [0.16, 1, 0.3, 1] }}
-                    />
-                    <motion.span
-                      className="absolute h-24 w-24 rounded-full border-2 border-primary/50"
-                      initial={{ scale: 0.95, opacity: 0.6 }}
-                      animate={{ scale: 2.4, opacity: 0 }}
-                      transition={{ duration: 2, delay: 0.5, repeat: Infinity, ease: [0.16, 1, 0.3, 1] }}
-                    />
-                    <motion.span
-                      className="absolute h-24 w-24 rounded-full border-2 border-primary/40"
-                      initial={{ scale: 0.95, opacity: 0.5 }}
-                      animate={{ scale: 2.4, opacity: 0 }}
-                      transition={{ duration: 2, delay: 1, repeat: Infinity, ease: [0.16, 1, 0.3, 1] }}
-                    />
-                  </>
-                )}
+                {/* Counter-rotating conic halos behind the listening mic. */}
+                <span
+                  className={`mic-conic ${listening && !micWarning && !micError ? "active" : ""}`}
+                  aria-hidden="true"
+                />
+                <span
+                  className={`mic-conic layer-2 ${listening && !micWarning && !micError ? "active" : ""}`}
+                  aria-hidden="true"
+                />
                 <motion.button
                   onPointerDown={handleHoldStart}
                   onPointerUp={handleHoldEnd}
@@ -703,17 +695,23 @@ function ChatScreen() {
                   }
                   animate={listening && !micWarning && !micError ? { scale: 1.08 } : { scale: 1 }}
                   transition={{ type: "spring", stiffness: 280, damping: 18 }}
-                  className={`relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full text-white touch-none ${
+                  className={`relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full text-white touch-none border border-white/15 ${
                     micError
-                      ? "bg-destructive animate-shake shadow-[0_18px_42px_-8px_oklch(0.62_0.22_27/0.55)]"
+                      ? "bg-gradient-to-br from-red-500 to-rose-600 animate-shake shadow-[0_18px_42px_-8px_rgba(244,63,94,0.55)]"
                       : micWarning
-                        ? "bg-warning animate-shake shadow-[0_18px_42px_-8px_oklch(0.78_0.16_60/0.55)]"
+                        ? "bg-gradient-to-br from-amber-400 to-orange-500 animate-shake shadow-[0_18px_42px_-8px_rgba(251,146,60,0.55)]"
                         : micSuccess
-                          ? "bg-success shadow-[0_18px_42px_-8px_oklch(0.7_0.17_150/0.55)]"
+                          ? "bg-gradient-to-br from-emerald-400 to-teal-500 shadow-[0_18px_42px_-8px_rgba(16,185,129,0.55)]"
                           : listening
-                            ? "bg-gradient-to-br from-primary to-[var(--primary-glow)] shadow-[var(--shadow-mic)]"
-                            : "mic-glow bg-gradient-to-br from-primary to-[var(--primary-glow)] disabled:opacity-50"
+                            ? "bg-gradient-to-br from-teal-400 to-cyan-500 shadow-[0_18px_42px_-8px_rgba(34,211,238,0.7)]"
+                            : "mic-glow bg-gradient-to-br from-teal-400 to-cyan-500 disabled:opacity-50"
                   }`}
+                  style={{
+                    backgroundImage:
+                      micError || micWarning || micSuccess
+                        ? undefined
+                        : "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.45), transparent 45%), linear-gradient(135deg, oklch(0.74 0.13 195), oklch(0.66 0.12 196))",
+                  }}
                 >
                   {micError || micWarning ? (
                     <WifiOff className="h-9 w-9" />
@@ -736,7 +734,7 @@ function ChatScreen() {
                     <span
                       key={i}
                       className={`h-2 w-2 rounded-full transition-colors ${
-                        i < userMessageCount ? "bg-primary" : "bg-muted-foreground/30"
+                        i < userMessageCount ? "bg-cyan-400" : "bg-white/20"
                       }`}
                     />
                   ))}

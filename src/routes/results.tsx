@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileShell } from "@/components/MobileShell";
+import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { CvModal } from "@/components/CvModal";
 import { SmartApplyModal } from "@/components/SmartApplyModal";
 import { useAuth } from "@/hooks/useAuth";
@@ -160,22 +161,23 @@ function ResultsScreen() {
   }, [user, id]);
 
   return (
-    <MobileShell>
-      <header className="bg-card/95 backdrop-blur-sm" dir={dir}>
+    <MobileShell transparent>
+      <AuroraBackdrop intensity="subtle" />
+      <header className="relative z-10 border-b border-white/10 bg-white/5 backdrop-blur-xl" dir={dir}>
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex items-center gap-3">
             <Link
               to="/"
               aria-label={copy.back}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted transition hover:bg-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
             >
               <ArrowLeft className={`h-5 w-5 ${dir === "rtl" ? "rotate-180" : ""}`} />
             </Link>
             <div>
-              <h1 className="text-base font-extrabold leading-tight tracking-tight text-foreground">
+              <h1 className="text-base font-extrabold leading-tight tracking-tight gradient-text">
                 {copy.yourProfile}
               </h1>
-              <p className="text-xs font-medium text-muted-foreground">{copy.poweredBy}</p>
+              <p className="text-xs font-medium text-white/55">{copy.poweredBy}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -183,7 +185,7 @@ function ResultsScreen() {
             <Link
               to="/history"
               aria-label={copy.history}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted transition hover:bg-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
             >
               <HistoryIcon className="h-5 w-5" />
             </Link>
@@ -191,7 +193,7 @@ function ResultsScreen() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto bg-app-shell" dir={dir}>
+      <div className="relative z-10 flex-1 overflow-y-auto" dir={dir}>
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">
           {demo === "1" && <DemoReconfigBanner />}
           {loading ? (
@@ -256,11 +258,11 @@ function ResultsSkeleton({ copy }: { copy: ResultsCopy }) {
       {[140, 200, 260].map((h, i) => (
         <div
           key={i}
-          className="animate-pulse rounded-2xl bg-card shadow-[var(--shadow-card)]"
+          className="animate-pulse rounded-3xl glass-card"
           style={{ height: h }}
         />
       ))}
-      <p className="text-center text-sm text-muted-foreground">{copy.loading}</p>
+      <p className="text-center text-sm text-white/60">{copy.loading}</p>
     </div>
   );
 }
@@ -268,17 +270,17 @@ function ResultsSkeleton({ copy }: { copy: ResultsCopy }) {
 function EmptyState({ copy }: { copy: ResultsCopy }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="mb-4 text-sm text-muted-foreground">{copy.emptyTitle}</p>
+      <p className="mb-4 text-sm text-white/70">{copy.emptyTitle}</p>
       <div className="flex gap-2">
         <Link
           to="/"
-          className="rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"
+          className="rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_-8px_rgba(34,211,238,0.55)]"
         >
           {copy.recordFirst}
         </Link>
         <Link
           to="/history"
-          className="rounded-2xl border-2 border-border bg-background px-5 py-3 text-sm font-semibold text-foreground"
+          className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/90 backdrop-blur-sm"
         >
           {copy.pastAnalyses}
         </Link>
@@ -728,15 +730,15 @@ function Section({
         hidden: { opacity: 0, y: 12 },
         show: { opacity: 1, y: 0 },
       }}
-      className="rounded-2xl bg-card p-5 shadow-[var(--shadow-floating)]"
+      className="glass-card rounded-3xl p-5 text-white"
     >
-      <div className="mb-1 flex items-center gap-2 text-primary">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[color:var(--primary-soft)] text-[color:var(--primary-deep)]">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-teal-400/30 to-cyan-500/30 text-cyan-200 ring-1 ring-cyan-300/20">
           {icon}
         </span>
-        <h2 className="text-base font-extrabold tracking-tight text-foreground">{title}</h2>
+        <h2 className="text-base font-extrabold tracking-tight text-white">{title}</h2>
       </div>
-      <p className="mb-4 text-xs font-medium text-muted-foreground">{subtitle}</p>
+      <p className="mb-4 text-xs font-medium text-white/55">{subtitle}</p>
       {children}
     </motion.section>
   );
