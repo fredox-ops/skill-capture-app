@@ -1,43 +1,42 @@
-## Context
+## Audit-driven polish for UNMAPPED submission
 
-I audited `src/routes/results.tsx` against your Phase 1 spec. **All four UI provenance elements are already in place** with the premium SaaS aesthetic and voice-first UX preserved:
+The app already satisfies every required bar in the brief. These three small fixes close the remaining visible gaps so judges can't ding you for them.
 
-- ✅ AI Risk Gauge → "Source: Frey & Osborne (2017)" (with database icon)
-- ✅ Job Wages → "Source: ILOSTAT 2023, National Median" (chip on every job card)
-- ✅ Education Trend card → 2025 → 2035 share, delta pill, "Source: Wittgenstein Centre, SSP2"
-- ✅ "Honest Limits" footer rendered as the last section above modals
+### Fix 1 — Multi-country client-side wage & education fallback
+**Why:** `src/utils/econometricData.ts` currently hardcodes Morocco (MAD) wages and a single Wittgenstein projection. If the edge function returns partial data for a Ghana/India/Kenya user, the UI silently shows MAD — contradicting the country-agnostic claim.
 
-## The one gap: disclaimer wording
+**Change:**
+- Restructure `iloWagesData` and `wageMajorBaseline` into `Record<countryIso3, …>` keyed by Morocco/India/Ghana/Kenya, mirroring `supabase/functions/_shared/econ-data/ilo-wages.json`.
+- Restructure `wittgensteinProjections` into per-country object, mirroring `wittgenstein-2035.json`.
+- Update `lookupWage(iscoCode, country)` and add `lookupEducationTrend(country)` signatures.
+- Update callers in `src/routes/results.tsx` to pass the active country from `useProfile()`.
 
-Your spec asks the footer to read **exactly**:
+### Fix 2 — Apply `automation_calibration_factor` at lookup
+**Why:** The DB column exists and the brief explicitly says "automation risk looks different in Kampala than in Kuala Lumpur". Right now we store the factor but don't visibly apply it.
 
-> *Disclaimer: Wages are national medians. Automation scores are based on Frey-Osborne and may differ in informal LMIC contexts.*
+**Change:**
+- Extend `lookupAutomation()` to accept an optional `calibrationFactor` and clamp `probability * factor` to [0, 1].
+- Pull the factor from `country_configs` via a small `useCountryConfig()` hook (cached) and pass it through on the results page.
+- Show a one-line provenance note: *"Adjusted for {country} infrastructure context (factor {x})"* under the gauge so judges see the calibration is real, not cosmetic.
 
-The current English copy in `src/lib/results-i18n.ts` (and its Arabic / French / Hindi parallels) is longer and slightly different. Voice playback (TTS) reads this same string, so updating the copy also updates what non-readers hear.
+### Fix 3 — Reconfig demo banner
+**Why:** The brief: *"show what it would take to reconfigure for a second context."* The switcher works, but there's no scripted moment that makes the reconfiguration legible during a 3-minute demo.
 
-## Proposed change (single file, ~12 lines)
+**Change:**
+- Add a tiny dismissible banner above the results page (visible only when `?demo=1` is in the URL) reading: *"Demo: switch country in the header — wages, automation calibration, education trends, and language all reconfigure from `country_configs` with zero code changes."*
+- Add a `data-demo-spotlight` attribute on the `CountrySwitcher` so the banner can highlight it with a soft pulse ring.
 
-**File:** `src/lib/results-i18n.ts`
+### Out of scope (intentionally)
+- Expanding ESCO crosswalk beyond the current ~10 occupations (diminishing returns for demo).
+- Adding O*NET / WB STEP — you already exceed the "≥2 signals" bar with 4 sources.
+- Removing the duplicated ITU readiness data (low risk; both sources agree today).
 
-Replace `honestLimitsBody` in all four locales with translations of the exact spec line:
+### Files touched
+- `src/utils/econometricData.ts` (restructure + signatures)
+- `src/routes/results.tsx` (pass country, render calibration note + demo banner)
+- `src/hooks/useCountryConfig.tsx` (new — cached fetch of active country's config row)
+- `src/components/CountrySwitcher.tsx` (add `data-demo-spotlight`)
 
-| Locale | New `honestLimitsBody` |
-|---|---|
-| **en** | "Disclaimer: Wages are national medians. Automation scores are based on Frey-Osborne and may differ in informal LMIC contexts." |
-| **ar (Darija)** | "تنبيه: الأجور هي المعدل الوطني. سكور الأتمتة مبني على Frey-Osborne وقد يختلف في السياقات غير الرسمية للدول النامية." |
-| **fr** | "Avertissement : Les salaires sont des médianes nationales. Les scores d'automatisation sont basés sur Frey-Osborne et peuvent différer dans les contextes informels des pays à revenu faible et intermédiaire." |
-| **hi** | "अस्वीकरण: वेतन राष्ट्रीय औसत हैं। स्वचालन स्कोर Frey-Osborne पर आधारित हैं और निम्न/मध्यम-आय देशों के अनौपचारिक संदर्भों में भिन्न हो सकते हैं।" |
-
-I will keep `honestLimitsTitle` as-is in each locale ("What we don't know", "آش ما كنعرفوش", etc.) so the section heading still feels human and voice-friendly, while the body matches the spec verbatim in English.
-
-## Out of scope (no changes needed)
-
-- No changes to `results.tsx` — the layout, source labels, icons, and order are already correct.
-- No changes to `econometricData.ts` — already supplies the values the cards render.
-- No changes to `analyze-skills` edge function — already returns only `isco_code` + `skill_name`; risk/wage/education are looked up client-side.
-
-## Verification after the edit
-
-1. Open `/results` after running an analysis and confirm the bottom "Honest Limits" section reads the new English line.
-2. Switch country/locale via the header switcher; confirm the Arabic, French, and Hindi variants render correctly RTL/LTR.
-3. Tap the section's TTS playback (existing voice-first behavior) and confirm the new line is read aloud.
+### Verification
+- Manual: switch Morocco → Ghana in the header on the results page; confirm wages flip MAD→GHS, calibration note updates, education card shows Ghana trend.
+- Open `/results?demo=1` and confirm banner + switcher pulse appear.
