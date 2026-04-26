@@ -412,8 +412,8 @@ function PolicyDashboard() {
               <div className="space-y-2">
                 {skillHeatmap.map((row) => (
                   <div key={row.major} className="grid grid-cols-12 items-center gap-3">
-                    <div className="col-span-5 text-sm text-slate-700">
-                      <span className="mr-2 inline-block w-6 rounded bg-slate-100 px-1.5 py-0.5 text-center text-xs font-mono text-slate-500">
+                    <div className="col-span-5 text-sm text-white/85">
+                      <span className="mr-2 inline-block w-6 rounded bg-white/10 px-1.5 py-0.5 text-center text-xs font-mono text-white/60">
                         {row.major}
                       </span>
                       {row.label}
@@ -426,13 +426,13 @@ function PolicyDashboard() {
                         />
                       </div>
                     </div>
-                    <div className="col-span-1 text-right text-xs text-slate-500">
+                    <div className="col-span-1 text-right text-xs text-white/60">
                       {row.count}
                     </div>
                   </div>
                 ))}
                 {skillHeatmap.every((r) => r.count === 0) && (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-white/60">
                     No skills with ISCO codes yet for this filter.
                   </p>
                 )}
@@ -451,7 +451,7 @@ function PolicyDashboard() {
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-white/60">
                       <th className="py-2 pr-4">ISCO major group</th>
                       <th className="py-2 pr-4">Cohort avg</th>
                       <th className="py-2 pr-4">Frey-Osborne baseline</th>
@@ -467,39 +467,39 @@ function PolicyDashboard() {
                           : null;
                       return (
                         <tr key={row.major} className="border-b border-slate-100">
-                          <td className="py-2 pr-4 text-slate-700">
-                            <span className="mr-2 inline-block w-6 rounded bg-slate-100 px-1.5 py-0.5 text-center text-xs font-mono text-slate-500">
+                          <td className="py-2 pr-4 text-white/85">
+                            <span className="mr-2 inline-block w-6 rounded bg-white/10 px-1.5 py-0.5 text-center text-xs font-mono text-white/60">
                               {row.major}
                             </span>
                             {row.label}
                           </td>
                           <td className="py-2 pr-4">{fmtPct(row.cohort)}</td>
-                          <td className="py-2 pr-4 text-slate-500">
+                          <td className="py-2 pr-4 text-white/60">
                             {fmtPct(row.baseline)}
                           </td>
                           <td
                             className={`py-2 pr-4 font-medium ${
                               gap == null
-                                ? "text-slate-400"
+                                ? "text-white/40"
                                 : gap > 0.05
                                   ? "text-red-600"
                                   : gap < -0.05
                                     ? "text-emerald-600"
-                                    : "text-slate-600"
+                                    : "text-white/70"
                             }`}
                           >
                             {gap == null
                               ? "—"
                               : `${gap > 0 ? "+" : ""}${(gap * 100).toFixed(1)} pp`}
                           </td>
-                          <td className="py-2 pr-4 text-slate-500">{row.n}</td>
+                          <td className="py-2 pr-4 text-white/60">{row.n}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-white/60">
                 Positive gap = cohort skills are <strong>more</strong> exposed to
                 automation than the national Frey-Osborne baseline for that group.
               </p>
@@ -518,14 +518,14 @@ function PolicyDashboard() {
               }
             >
               {!wageGap ? (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-white/60">
                   Pick a country in the filter above to see a wage-gap comparison.
                 </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
-                      <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                      <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-white/60">
                         <th className="py-2 pr-4">ISCO major group</th>
                         <th className="py-2 pr-4">Cohort opportunity median</th>
                         <th className="py-2 pr-4">ILOSTAT median</th>
@@ -541,8 +541,8 @@ function PolicyDashboard() {
                             : null;
                         return (
                           <tr key={row.major} className="border-b border-slate-100">
-                            <td className="py-2 pr-4 text-slate-700">
-                              <span className="mr-2 inline-block w-6 rounded bg-slate-100 px-1.5 py-0.5 text-center text-xs font-mono text-slate-500">
+                            <td className="py-2 pr-4 text-white/85">
+                              <span className="mr-2 inline-block w-6 rounded bg-white/10 px-1.5 py-0.5 text-center text-xs font-mono text-white/60">
                                 {row.major}
                               </span>
                               {row.label}
@@ -554,7 +554,7 @@ function PolicyDashboard() {
                                   }`
                                 : "—"}
                             </td>
-                            <td className="py-2 pr-4 text-slate-500">
+                            <td className="py-2 pr-4 text-white/60">
                               {row.iloMedian != null
                                 ? `${row.iloMedian.toLocaleString()} ${wageGap.currency}`
                                 : "—"}
@@ -562,17 +562,17 @@ function PolicyDashboard() {
                             <td
                               className={`py-2 pr-4 font-medium ${
                                 gap == null
-                                  ? "text-slate-400"
+                                  ? "text-white/40"
                                   : gap < -0.1
                                     ? "text-red-600"
                                     : gap > 0.1
                                       ? "text-emerald-600"
-                                      : "text-slate-600"
+                                      : "text-white/70"
                               }`}
                             >
                               {gap == null ? "—" : `${gap > 0 ? "+" : ""}${(gap * 100).toFixed(0)}%`}
                             </td>
-                            <td className="py-2 pr-4 text-slate-500">{row.n}</td>
+                            <td className="py-2 pr-4 text-white/60">{row.n}</td>
                           </tr>
                         );
                       })}
@@ -589,14 +589,14 @@ function PolicyDashboard() {
               source="Wittgenstein Centre Human Capital Data Explorer v2.0, SSP2 scenario."
             >
               {!wittgenstein ? (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-white/60">
                   Pick a country in the filter above to see its education projection.
                 </p>
               ) : (
                 <div className="space-y-3">
                   <div className="flex items-end gap-6">
                     <Stat label="2025" value={`${wittgenstein.share_2025_pct}%`} />
-                    <div className="text-2xl text-slate-300">→</div>
+                    <div className="text-2xl text-white/50">→</div>
                     <Stat
                       label="2035"
                       value={`${wittgenstein.share_2035_pct}%`}
@@ -608,7 +608,7 @@ function PolicyDashboard() {
                       tone="green"
                     />
                   </div>
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-white/70">
                     Share of {country}'s 20–39 cohort with at least upper-secondary
                     education. By 2035, expect{" "}
                     <strong>
@@ -715,10 +715,10 @@ function Stat({
 }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="text-xs uppercase tracking-wide text-white/60">{label}</div>
       <div
         className={`text-2xl font-semibold ${
-          tone === "green" ? "text-emerald-600" : "text-slate-900"
+          tone === "green" ? "text-emerald-300" : "text-white"
         }`}
       >
         {value}
