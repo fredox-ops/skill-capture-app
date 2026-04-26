@@ -778,17 +778,15 @@ function ItuReadinessSection({
   );
 }
 
-interface ShareProfileSectionProps {
-  analysis: Analysis;
-  enrichedSkills: Skill[];
-  enrichedJobs: Opportunity[];
-}
-
 function ShareProfileSection({
   analysis,
   enrichedSkills,
   enrichedJobs,
-}: ShareProfileSectionProps) {
+}: {
+  analysis: Analysis;
+  enrichedSkills: Skill[];
+  enrichedJobs: Opportunity[];
+}) {
   const [copied, setCopied] = useState(false);
 
   const profileUrl = useMemo(() => {
