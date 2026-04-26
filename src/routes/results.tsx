@@ -596,6 +596,13 @@ function ResultsContent({
           </Section>
         )}
 
+        <AdjacentSkillsSection
+          iscoCodes={enrichedSkills.map((s) => s.isco_code)}
+          copy={copy}
+        />
+
+        <ItuReadinessSection country={country} copy={copy} />
+
         <Section
           icon={<Info className="h-4 w-4" />}
           title={copy.honestLimitsTitle}
