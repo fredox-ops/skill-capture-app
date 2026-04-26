@@ -12,11 +12,11 @@ interface CountryConfig {
   digital_readiness_pct: number;
 }
 
-const LANG_TO_PROFILE: Record<string, "Arabic" | "English" | "French"> = {
+const LANG_TO_PROFILE: Record<string, "Arabic" | "English" | "French" | "Hindi"> = {
   Arabic: "Arabic",
   English: "English",
   French: "French",
-  Hindi: "English", // profile column doesn't yet support Hindi — fall back
+  Hindi: "Hindi",
 };
 
 /**
@@ -50,7 +50,7 @@ export function CountrySwitcher() {
     if (user && profile) {
       const lang = LANG_TO_PROFILE[next.primary_language] ?? "English";
       await update({
-        country: next.display_name as "Morocco" | "India",
+        country: next.display_name as "Morocco" | "India" | "Ghana" | "Kenya",
         language: lang,
       });
       // Reload so signals re-fetch with the new calibration / wage table.

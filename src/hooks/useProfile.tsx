@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
-export type Country = "Morocco" | "India";
-export type Language = "Arabic" | "English" | "French";
+export type Country = "Morocco" | "India" | "Ghana" | "Kenya";
+export type Language = "Arabic" | "English" | "French" | "Hindi";
 
 export interface Profile {
   id: string;
