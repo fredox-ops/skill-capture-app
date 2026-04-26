@@ -50,7 +50,7 @@ export function CountrySwitcher() {
     if (user && profile) {
       const lang = LANG_TO_PROFILE[next.primary_language] ?? "English";
       await update({
-        country: next.display_name as "Morocco" | "India",
+        country: next.display_name as "Morocco" | "India" | "Ghana" | "Kenya",
         language: lang,
       });
       // Reload so signals re-fetch with the new calibration / wage table.
