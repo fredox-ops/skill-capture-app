@@ -34,10 +34,14 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#3a7afe" },
       { title: "Sawt-Net — Speak. Analyze. Get Jobs." },
       { name: "description", content: "Turn your spoken skills into formal job opportunities. Voice-first, mobile-first." },
-      { property: "og:title", content: "Sawt-Net — Voice to Jobs" },
-      { property: "og:description", content: "From your voice to a real career. Built for the informal economy." },
+      { property: "og:title", content: "Sawt-Net — Speak. Analyze. Get Jobs." },
+      { property: "og:description", content: "Turn your spoken skills into formal job opportunities. Voice-first, mobile-first." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "Sawt-Net — Speak. Analyze. Get Jobs." },
+      { name: "twitter:description", content: "Turn your spoken skills into formal job opportunities. Voice-first, mobile-first." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2847f16b-87bb-438b-b9d4-314832d8273f" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2847f16b-87bb-438b-b9d4-314832d8273f" },
     ],
     links: [
       {
