@@ -22,6 +22,8 @@ import {
   WITTGENSTEIN,
   iscoMajor,
 } from "@/lib/econ-baselines";
+import { GrainientHero } from "@/components/policy/GrainientHero";
+import { AutomationRiskChart } from "@/components/policy/AutomationRiskChart";
 
 export const Route = createFileRoute("/policy")({
   head: () => ({
