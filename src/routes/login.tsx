@@ -7,6 +7,7 @@ import { MobileShell } from "@/components/MobileShell";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
+import Galaxy from "@/components/Galaxy";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
