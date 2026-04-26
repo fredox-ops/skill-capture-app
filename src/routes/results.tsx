@@ -841,7 +841,7 @@ function ShareProfileSection({
         skills_taxonomy: "ISCO-08 (ILO) + ESCO v1.2 (European Commission)",
         automation: "Frey & Osborne (2017)",
         wages: "ILOSTAT — Mean nominal monthly earnings of employees by occupation",
-        education_trend: wittgensteinProjections.source,
+        education_trend: "Wittgenstein Centre, SSP2",
       },
     }),
     [analysis, enrichedSkills, enrichedJobs, profileUrl],
