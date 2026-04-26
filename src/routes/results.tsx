@@ -16,7 +16,9 @@ import {
   Share2,
   ShieldAlert,
   Sparkles,
+  Sprout,
   TrendingUp,
+  Wifi,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileShell } from "@/components/MobileShell";
