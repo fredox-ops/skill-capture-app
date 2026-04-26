@@ -1,43 +1,37 @@
-## Why you don't see it
+## Root cause
 
-You're on `/` (home), but the Galaxy was only wired into `/login`. On top of that, `MobileShell` uses `bg-app-shell` (a solid light color) which would cover any background sitting behind it anyway. So even if Galaxy were mounted, the shell would paint over it.
+The `<Galaxy />` is mounted correctly in `__root.tsx` inside a `fixed inset-0 -z-10` div, but it is being **painted over by two opaque white layers** that sit *above* it in the stacking context:
 
-That's the real fix: mount Galaxy as a **fixed, full-viewport background at the root level** (behind everything), and make the shell + cards transparent / glassy so the stars show through.
+1. **`html, body` in `src/styles.css` (lines 188–196)** sets `background-color: var(--color-app-shell)` which is near-white. Because the Galaxy wrapper uses `-z-10`, it sits *behind* the body's background paint → the white body covers the entire star-field.
+2. **`.app-shell` utility (lines 205–211)** used by `MobileShell.tsx` paints another opaque white background on top of every route's content area.
 
-## Plan
+Net result: the WebGL canvas is correctly mounted and animating, but you only ever see a flat white/teal page.
 
-### 1. Mount Galaxy globally in the root layout
-File: `src/routes/__root.tsx`
+## Fix
 
-- Import `Galaxy` from `@/components/Galaxy`.
-- Inside `RootComponent`, render a `fixed inset-0 -z-10` wrapper containing `<Galaxy />` with the exact props you provided (mouseRepulsion, density 1, glowIntensity 0.3, saturation 0, hueShift 140, twinkleIntensity 0.3, rotationSpeed 0.1, repulsionStrength 2, starSpeed 0.5, speed 1, `transparent={false}` so it paints its own deep-space backdrop).
-- Wrap with `<ClientOnly>` (or a mounted-state guard) because `ogl` touches `window` — must not run during SSR.
-- Add a soft dark gradient overlay above it for legibility.
+### 1. `src/styles.css` — make body transparent on top of the Galaxy
+- Change `html, body { background-color: var(--color-app-shell); ... }` to `background-color: transparent;`
+- Move the off-white `--app-shell` paint to a new `.solid-shell` utility for routes that *need* an opaque background (none currently do — the app is fully chat-driven).
+- Update the `.app-shell` utility (line 205) to `background: transparent;` so route content lets the Galaxy show through.
 
-### 2. Make the shell see-through so the galaxy is visible everywhere
-File: `src/components/MobileShell.tsx`
+### 2. `src/components/MobileShell.tsx` — confirm transparency
+- Already uses `bg-transparent`, but the inner `app-shell` utility was overriding it. With #1 done, this becomes truly transparent.
 
-- Replace `bg-app-shell` with `bg-transparent` (or `bg-slate-950/30 backdrop-blur-[2px]`) so the global Galaxy shows through on every route, not just login.
+### 3. `src/routes/__root.tsx` — keep Galaxy wrapper as the dark base
+- Current wrapper already uses `bg-slate-950` as the canvas fallback color — leave it. With body transparent, this dark slate becomes the visible "void" behind the stars.
+- Keep `transparent={false}` on `<Galaxy />` so the WebGL clear color paints the dark backdrop itself (matches reactbits demo).
 
-### 3. Adapt the home page (`/`) for the dark galaxy background
-File: `src/routes/index.tsx`
+### 4. Glassmorphism contrast fix on `/` (home)
+- Bot bubbles in `src/routes/index.tsx` currently use `bg-bubble-bot` (white, lines ~600+ — visible in the truncated section). With a dark Galaxy backdrop, white-on-white text inside chat bubbles is fine, but the surrounding shell text (`text-foreground` = dark slate) will be invisible on dark.
+- Add `text-slate-100` to top-level shell text in `index.tsx`, `history.tsx`, `results.tsx`, `login.tsx`, and switch any plain card backgrounds to `bg-slate-900/40 backdrop-blur-md border-white/10` for legibility on the star-field.
 
-- Set the page text color to light (`text-slate-100`) on the main container.
-- Convert the primary surfaces (chat bubbles, mic card, header chips, history button) to glassy style: `bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl`.
-- Keep the mic button vivid (its existing primary color works on dark).
-- Loading / empty states get the same glass treatment.
+## Verification
+- Hard reload `/` — expect to see animated stars behind glassy chat bubbles.
+- Navigate to `/login`, `/history`, `/results` — all routes share the global Galaxy, so all should show the same animated background.
+- Check browser console for any WebGL warnings.
 
-### 4. Clean up the login route
-File: `src/routes/login.tsx`
-
-- Remove its local `<Galaxy />` block — it's now global.
-- Keep the existing dark text/glass styling so it still looks right.
-
-### 5. Verify
-- Hard-refresh `/` and confirm the animated star field is visible behind the chat UI.
-- Navigate to `/login`, `/history`, `/results` — the same galaxy persists across routes (no re-mount flicker because it lives in `__root`).
-- Confirm no SSR crash (`window is not defined`) thanks to the ClientOnly guard.
-- Check console for WebGL context errors.
-
-## What you'll see after this
-A single, continuous animated galaxy background across the whole app, with your chat UI, login form, and other content floating in glassy cards on top of it — exactly the look in the snippet you pasted.
+## Files to edit
+- `src/styles.css` (body + `.app-shell` background → transparent)
+- `src/components/MobileShell.tsx` (no functional change needed after CSS fix; verify)
+- `src/routes/index.tsx` (text color + bubble glassmorphism on shell elements)
+- `src/routes/login.tsx`, `src/routes/history.tsx`, `src/routes/results.tsx` (text color for legibility on dark)
