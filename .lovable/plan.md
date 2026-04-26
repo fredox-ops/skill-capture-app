@@ -1,29 +1,48 @@
-## Galaxy Component Integration Plan
+## Root Cause
 
-The user is currently on `/login` — I'll integrate the Galaxy WebGL star-field as a premium ambient background there (perfect "million-dollar SaaS" feel for the auth screen). I'll also expose it as a reusable component so we can drop it elsewhere (e.g. policymaker hero, landing) later.
+The dev server log reveals the real issue — and it has nothing to do with the Galaxy component itself:
 
-### 1. Install dependency
-- `bun add ogl` (WebGL micro-library, ~12KB, Worker-safe since it only runs client-side inside `useEffect`).
+```
+[vite:css][postcss] @import must precede all other statements (besides @charset or empty @layer)
+4299 |  @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans...");
+```
 
-### 2. Create the component (TypeScript-adapted)
-**`src/components/Galaxy.tsx`** — port the provided JSX to TSX:
-- Convert prop signature to a typed `GalaxyProps` interface (focal/rotation as `[number, number]` tuples, all numeric/boolean props typed).
-- Keep shaders and `useEffect` logic byte-identical.
-- Guard against SSR: bail early if `typeof window === "undefined"` (TanStack Start renders this route on the server).
-- Inline the 3 lines of CSS via a `style` prop on the container — avoids creating a separate `Galaxy.css` file and keeps the component self-contained.
+**The entire Tailwind stylesheet is failing to compile.** That's why the page looks broken / unstyled — it's not that Galaxy isn't rendering, it's that no CSS is being applied at all (or only stale cached CSS), so every absolutely-positioned background layer collapses.
 
-### 3. Wire it into `/login`
-**`src/routes/login.tsx`**:
-- Add an absolutely-positioned `<Galaxy />` layer behind the existing login card (`absolute inset-0 -z-10` with `pointer-events-none` so the form remains fully interactive).
-- Use props tuned for the brand: `hueShift={180}` (teal/cyan to match our palette), `density={1}`, `glowIntensity={0.4}`, `saturation={0.6}`, `twinkleIntensity={0.4}`, `mouseRepulsion`, `transparent`.
-- Darken the existing background slightly (e.g. `bg-slate-950/40`) so stars pop without breaking legibility.
-- Respect `prefers-reduced-motion`: pass `disableAnimation` based on a `matchMedia` check.
+In `src/styles.css`, the Google Fonts `@import url(...)` is on line 6 — **after** `@import "tailwindcss"`, `@source "../src"`, and `@import "tw-animate-css"`. Per the CSS spec, **every `@import` rule must precede all other statements**. Once Tailwind v4 expands its utilities inline, the Google Fonts `@import` ends up at line ~4299 of the generated CSS, after thousands of rules — PostCSS rightly rejects it and the whole file fails to build.
 
-### 4. Verification
-- Run `bunx tsc --noEmit` to confirm types compile.
-- Visit `/login` to verify: stars render, form remains clickable, no console errors, no SSR hydration mismatch.
+## The Fix
 
-### Notes / honest limits
-- The original snippet is JSX; I'll convert to TSX (project is strict TS). Shader strings stay identical.
-- `ogl` is pure ESM and Worker-safe at *bundle* time, but it touches `window`/WebGL — the component must only mount client-side. The `useEffect` guard handles this naturally; no SSR work needed since the canvas is created inside the effect.
-- Not adding it to `/policy` in this pass — that route already has the `GrainientHero`. If you want Galaxy *instead* of (or layered with) Grainient on `/policy`, say the word and I'll swap it after this lands.
+**One file change** — reorder `src/styles.css` so the remote Google Fonts `@import url(...)` is the very first statement, before any Tailwind directives:
+
+```css
+/* Plus Jakarta Sans — must be first, before any other CSS statements */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* …rest of file unchanged… */
+```
+
+That single move unblocks the entire stylesheet, which means:
+- All Tailwind utility classes start applying again
+- The login page's `bg-slate-950`, `absolute inset-0 -z-10`, gradient overlay, etc. all render
+- The Galaxy WebGL canvas (which is already correctly mounted) becomes visible behind the form
+
+## Verification After Approval
+
+1. Tail `/tmp/dev-server-logs/dev-server.log` and confirm the `@import must precede all other statements` PostCSS error is gone.
+2. Reload `/login` and confirm the animated star-field is visible behind the login card.
+3. If for any reason it still doesn't render, capture the browser console with `code--read_console_logs` for any `WebGL`, `ogl`, or `Galaxy` errors and address those (e.g. parent container has zero height, WebGL context lost).
+
+## What I'm NOT changing
+
+- `src/components/Galaxy.tsx` — the component is correct, the shaders compile, the cleanup is safe.
+- `src/routes/login.tsx` — the integration (absolute layer, `-z-10`, gradient overlay) is correct.
+- `ogl` install — already added to `package.json`.
+
+The Galaxy was never broken. The CSS pipeline was broken, which made it look like nothing was on screen.

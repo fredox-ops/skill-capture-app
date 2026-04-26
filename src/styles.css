@@ -1,9 +1,9 @@
+/* Plus Jakarta Sans — MUST be the first statement (CSS spec: @import before all other rules) */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
-
-/* Plus Jakarta Sans — modern geometric sans for a premium SaaS look */
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 
 @custom-variant dark (&:is(.dark *));
 
