@@ -70,6 +70,15 @@ export interface ResultsCopy {
   educationTrendBody: (a: number, b: number, country: string) => string;
   honestLimitsTitle: string;
   honestLimitsBody: string;
+
+  // Phase C — adjacent durable skills + ITU digital readiness
+  adjacentSkillsTitle: string;
+  adjacentSkillsSubtitle: string;
+  adjacentSkillsBody: string;
+  ituTitle: string;
+  ituSubtitle: string;
+  ituBody: (pct: number, country: string) => string;
+  ituBand: { Emerging: string; Growing: string; Established: string };
 }
 
 const en: ResultsCopy = {
