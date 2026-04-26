@@ -12,11 +12,11 @@ interface CountryConfig {
   digital_readiness_pct: number;
 }
 
-const LANG_TO_PROFILE: Record<string, "Arabic" | "English" | "French"> = {
+const LANG_TO_PROFILE: Record<string, "Arabic" | "English" | "French" | "Hindi"> = {
   Arabic: "Arabic",
   English: "English",
   French: "French",
-  Hindi: "English", // profile column doesn't yet support Hindi — fall back
+  Hindi: "Hindi",
 };
 
 /**
