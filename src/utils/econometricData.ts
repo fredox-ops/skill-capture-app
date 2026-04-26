@@ -171,3 +171,158 @@ export function probabilityToResilienceScore(probability: number): number {
   const clamped = Math.max(0, Math.min(1, probability));
   return Math.round((1 - clamped) * 100);
 }
+
+// ---- Adjacent durable skills --------------------------------------------
+// For each ISCO-08 code (or major group), a short list of "durable"
+// transferable skills the worker likely already practices and that remain
+// resilient to automation (interpersonal, judgement, dexterity, on-site
+// problem solving). Used to nudge workers toward pivots that compound
+// rather than compete with AI.
+//
+// Source: ESCO transversal skills cluster (2023) + Frey-Osborne residuals.
+
+export interface AdjacentSkillSuggestion {
+  skills: string[];
+  source: string;
+}
+
+const adjacentByCode: Record<string, string[]> = {
+  // Craft & trades
+  "7126": ["On-site diagnostics", "Customer trust building", "Estimating & quoting"],
+  "7127": ["HVAC fault diagnosis", "Safety inspection", "Client advisory"],
+  "7411": ["Electrical safety auditing", "Site supervision", "Apprentice mentoring"],
+  "7422": ["Hardware troubleshooting", "Customer onboarding", "Small-business IT support"],
+  "7531": ["Bespoke fitting & alterations", "Pattern design", "Boutique merchandising"],
+  // Service & sales
+  "5120": ["Menu costing", "Kitchen team coordination", "Food safety leadership"],
+  "5141": ["Client consultation", "Salon team training", "Personal branding"],
+  "5142": ["Skincare consultation", "Treatment planning", "Client retention"],
+  "5311": ["Early childhood pedagogy", "Parent communication", "Behavioural support"],
+  "5321": ["Patient communication", "Care plan coordination", "First-aid leadership"],
+  "5223": ["Visual merchandising", "Inventory judgement", "Customer relationship building"],
+  // Drivers
+  "8322": ["Route optimisation", "Customer service", "Vehicle preventive care"],
+  // Professionals
+  "2512": ["System design judgement", "Code review & mentoring", "Cross-team facilitation"],
+  "2513": ["UX research", "Stakeholder workshops", "Accessibility design"],
+  // Clerical
+  "4110": ["Process improvement", "Data integrity oversight", "Vendor coordination"],
+  // Elementary
+  "9112": ["Site supervision", "Equipment maintenance", "Team scheduling"],
+};
+
+const adjacentByMajor: Record<string, string[]> = {
+  "1": ["Team leadership", "Stakeholder negotiation", "Strategic judgement"],
+  "2": ["Mentoring & coaching", "Cross-disciplinary problem solving", "Communication of complex ideas"],
+  "3": ["Field troubleshooting", "Quality oversight", "Client communication"],
+  "4": ["Process improvement", "Stakeholder coordination", "Data quality oversight"],
+  "5": ["Customer relationship building", "Team coordination", "On-the-spot problem solving"],
+  "6": ["Crop / livestock judgement", "Cooperative coordination", "Sustainable practice"],
+  "7": ["On-site diagnostics", "Apprentice mentoring", "Customer trust building"],
+  "8": ["Equipment troubleshooting", "Safety leadership", "Preventive maintenance judgement"],
+  "9": ["Site coordination", "Reliability & punctuality", "Team support"],
+};
+
+/**
+ * Suggest 2-3 durable adjacent skills the worker can credibly claim, based
+ * on their detected ISCO-08 codes. Falls back to the major-group list.
+ */
+export function lookupAdjacentSkills(
+  iscoCodes: (string | undefined | null)[],
+): AdjacentSkillSuggestion {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of iscoCodes) {
+    const code = (raw ?? "").trim();
+    const list = adjacentByCode[code] ?? adjacentByMajor[code.charAt(0)] ?? [];
+    for (const skill of list) {
+      if (!seen.has(skill)) {
+        seen.add(skill);
+        out.push(skill);
+        if (out.length >= 3) break;
+      }
+    }
+    if (out.length >= 3) break;
+  }
+  if (out.length === 0) {
+    out.push("Customer communication", "On-the-spot problem solving", "Reliability");
+  }
+  return {
+    skills: out.slice(0, 3),
+    source: "ESCO transversal skills (2023)",
+  };
+}
+
+// ---- ITU Digital Readiness ----------------------------------------------
+// % of population using the internet — proxy for digital opportunity surface.
+// Source: ITU DataHub, Individuals using the Internet (latest available).
+
+export interface ItuReadiness {
+  countryDisplay: string;
+  iso3: string;
+  internetUsersPct: number;
+  year: number;
+  source: string;
+  sourceShort: string;
+  /** Qualitative band derived from the percentage. */
+  band: "Emerging" | "Growing" | "Established";
+}
+
+const ituByCountry: Record<string, ItuReadiness> = {
+  Morocco: {
+    countryDisplay: "Morocco",
+    iso3: "MAR",
+    internetUsersPct: 90,
+    year: 2023,
+    source: "ITU DataHub — Individuals using the Internet (2023)",
+    sourceShort: "ITU 2023",
+    band: "Established",
+  },
+  India: {
+    countryDisplay: "India",
+    iso3: "IND",
+    internetUsersPct: 55,
+    year: 2023,
+    source: "ITU DataHub — Individuals using the Internet (2023)",
+    sourceShort: "ITU 2023",
+    band: "Growing",
+  },
+  Ghana: {
+    countryDisplay: "Ghana",
+    iso3: "GHA",
+    internetUsersPct: 69,
+    year: 2023,
+    source: "ITU DataHub — Individuals using the Internet (2023)",
+    sourceShort: "ITU 2023",
+    band: "Growing",
+  },
+  Kenya: {
+    countryDisplay: "Kenya",
+    iso3: "KEN",
+    internetUsersPct: 40,
+    year: 2023,
+    source: "ITU DataHub — Individuals using the Internet (2023)",
+    sourceShort: "ITU 2023",
+    band: "Emerging",
+  },
+};
+
+/**
+ * Look up the ITU "individuals using the internet" headline for a country.
+ * Falls back to a neutral global-LMIC baseline.
+ */
+export function lookupItuReadiness(country: string | undefined | null): ItuReadiness {
+  const key = (country ?? "Morocco").trim();
+  return (
+    ituByCountry[key] ?? {
+      countryDisplay: key || "—",
+      iso3: "—",
+      internetUsersPct: 60,
+      year: 2023,
+      source: "ITU DataHub — Individuals using the Internet (2023)",
+      sourceShort: "ITU 2023",
+      band: "Growing",
+    }
+  );
+}
+

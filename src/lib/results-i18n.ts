@@ -70,6 +70,15 @@ export interface ResultsCopy {
   educationTrendBody: (a: number, b: number, country: string) => string;
   honestLimitsTitle: string;
   honestLimitsBody: string;
+
+  // Phase C — adjacent durable skills + ITU digital readiness
+  adjacentSkillsTitle: string;
+  adjacentSkillsSubtitle: string;
+  adjacentSkillsBody: string;
+  ituTitle: string;
+  ituSubtitle: string;
+  ituBody: (pct: number, country: string) => string;
+  ituBand: { Emerging: string; Growing: string; Established: string };
 }
 
 const en: ResultsCopy = {
@@ -132,6 +141,15 @@ const en: ResultsCopy = {
   honestLimitsTitle: "What we don't know",
   honestLimitsBody:
     "Disclaimer: Wages are national medians. Automation scores are based on Frey-Osborne and may differ in informal LMIC contexts.",
+  adjacentSkillsTitle: "Adjacent durable skills",
+  adjacentSkillsSubtitle: "Pivots that compound, not compete, with AI",
+  adjacentSkillsBody:
+    "These transferable skills sit close to what you already do — and stay valuable as automation expands.",
+  ituTitle: "Digital opportunity surface",
+  ituSubtitle: "ITU DataHub — Individuals using the Internet",
+  ituBody: (pct, country) =>
+    `${pct}% of people in ${country} use the internet — the addressable market for digital and remote-friendly work.`,
+  ituBand: { Emerging: "Emerging", Growing: "Growing", Established: "Established" },
 };
 
 const ar: ResultsCopy = {
@@ -194,6 +212,15 @@ const ar: ResultsCopy = {
   honestLimitsTitle: "آش ما كنعرفوش",
   honestLimitsBody:
     "تنبيه: الأجور هي المعدل الوطني. سكور الأتمتة مبني على Frey-Osborne وقد يختلف في السياقات غير الرسمية للدول النامية.",
+  adjacentSkillsTitle: "مهارات قريبة وصعب يعوّضها AI",
+  adjacentSkillsSubtitle: "تحوّلات تكمّل الذكاء الاصطناعي ما كتنافسوش",
+  adjacentSkillsBody:
+    "هاد المهارات قريبة لخدمتك، وكتبقى مطلوبة حتى مع توسّع الأتمتة.",
+  ituTitle: "حجم الفرصة الرقمية",
+  ituSubtitle: "ITU DataHub — استعمال الإنترنت",
+  ituBody: (pct, country) =>
+    `${pct}% من ساكنة ${country} كيستعملو الإنترنت — هاد هو السوق ديال الخدمة الرقمية وعن بعد.`,
+  ituBand: { Emerging: "ناشئ", Growing: "نامي", Established: "راسخ" },
 };
 
 const fr: ResultsCopy = {
@@ -256,6 +283,15 @@ const fr: ResultsCopy = {
   honestLimitsTitle: "Ce que nous ne savons pas",
   honestLimitsBody:
     "Avertissement : Les salaires sont des médianes nationales. Les scores d'automatisation sont basés sur Frey-Osborne et peuvent différer dans les contextes informels des pays à revenu faible et intermédiaire.",
+  adjacentSkillsTitle: "Compétences durables adjacentes",
+  adjacentSkillsSubtitle: "Des pivots qui complètent l'IA, sans la concurrencer",
+  adjacentSkillsBody:
+    "Ces compétences transférables sont proches de ton métier — et restent précieuses face à l'automatisation.",
+  ituTitle: "Surface d'opportunité numérique",
+  ituSubtitle: "ITU DataHub — Personnes utilisant Internet",
+  ituBody: (pct, country) =>
+    `${pct}% des habitants de ${country} utilisent Internet — c'est le marché adressable pour le travail numérique et à distance.`,
+  ituBand: { Emerging: "Émergent", Growing: "En croissance", Established: "Établi" },
 };
 
 const hi: ResultsCopy = {
@@ -318,6 +354,15 @@ const hi: ResultsCopy = {
   honestLimitsTitle: "हम क्या नहीं जानते",
   honestLimitsBody:
     "अस्वीकरण: वेतन राष्ट्रीय औसत हैं। स्वचालन स्कोर Frey-Osborne पर आधारित हैं और निम्न/मध्यम-आय देशों के अनौपचारिक संदर्भों में भिन्न हो सकते हैं।",
+  adjacentSkillsTitle: "नज़दीकी टिकाऊ स्किल्स",
+  adjacentSkillsSubtitle: "ऐसे बदलाव जो AI के साथ बढ़ें, उससे लड़ें नहीं",
+  adjacentSkillsBody:
+    "ये स्थानांतरणीय स्किल्स आपके मौजूदा काम के पास हैं — और ऑटोमेशन बढ़ने पर भी मूल्यवान बनी रहती हैं।",
+  ituTitle: "डिजिटल अवसर का दायरा",
+  ituSubtitle: "ITU DataHub — इंटरनेट उपयोगकर्ता",
+  ituBody: (pct, country) =>
+    `${country} में ${pct}% लोग इंटरनेट का उपयोग करते हैं — डिजिटल और रिमोट काम के लिए यही बाज़ार है।`,
+  ituBand: { Emerging: "उभरता", Growing: "बढ़ता", Established: "स्थापित" },
 };
 
 const TABLE: Record<ResultsLang, ResultsCopy> = {
