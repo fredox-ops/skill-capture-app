@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileShell } from "@/components/MobileShell";
+import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import { CvModal } from "@/components/CvModal";
 import { SmartApplyModal } from "@/components/SmartApplyModal";
 import { useAuth } from "@/hooks/useAuth";
