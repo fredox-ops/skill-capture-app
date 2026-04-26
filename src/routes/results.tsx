@@ -258,11 +258,11 @@ function ResultsSkeleton({ copy }: { copy: ResultsCopy }) {
       {[140, 200, 260].map((h, i) => (
         <div
           key={i}
-          className="animate-pulse rounded-2xl bg-card shadow-[var(--shadow-card)]"
+          className="animate-pulse rounded-3xl glass-card"
           style={{ height: h }}
         />
       ))}
-      <p className="text-center text-sm text-muted-foreground">{copy.loading}</p>
+      <p className="text-center text-sm text-white/60">{copy.loading}</p>
     </div>
   );
 }
@@ -270,17 +270,17 @@ function ResultsSkeleton({ copy }: { copy: ResultsCopy }) {
 function EmptyState({ copy }: { copy: ResultsCopy }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="mb-4 text-sm text-muted-foreground">{copy.emptyTitle}</p>
+      <p className="mb-4 text-sm text-white/70">{copy.emptyTitle}</p>
       <div className="flex gap-2">
         <Link
           to="/"
-          className="rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"
+          className="rounded-2xl bg-gradient-to-br from-teal-400 to-cyan-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_-8px_rgba(34,211,238,0.55)]"
         >
           {copy.recordFirst}
         </Link>
         <Link
           to="/history"
-          className="rounded-2xl border-2 border-border bg-background px-5 py-3 text-sm font-semibold text-foreground"
+          className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/90 backdrop-blur-sm"
         >
           {copy.pastAnalyses}
         </Link>
