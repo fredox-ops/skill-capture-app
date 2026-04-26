@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
+import { AuroraBackdrop } from "@/components/AuroraBackdrop";
 import {
   COUNTRY_TO_ISO3,
   FREY_BASELINE_BY_MAJOR,
@@ -282,26 +283,27 @@ function PolicyDashboard() {
   }
 
   return (
-    <div className="min-h-dvh bg-slate-50 text-slate-900">
+    <div className="relative min-h-dvh text-white">
+      <AuroraBackdrop intensity="rich" />
       {/* Header */}
-      <header className="border-b border-slate-200 bg-white">
+      <header className="relative z-10 border-b border-white/10 bg-white/5 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
           <div className="flex items-center gap-3">
             <Link
               to="/"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
               aria-label="Back to app"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div>
               <div className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-emerald-600" />
-                <h1 className="text-lg font-semibold tracking-tight">
+                <ShieldCheck className="h-5 w-5 text-cyan-300" />
+                <h1 className="text-lg font-semibold tracking-tight gradient-text">
                   Policymaker Dashboard
                 </h1>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-white/55">
                 Aggregate, anonymised view across {kpis.n} analysed youth profiles.
               </p>
             </div>
@@ -310,10 +312,10 @@ function PolicyDashboard() {
             <select
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="h-9 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
             >
               {countriesPresent.map((c) => (
-                <option key={c} value={c}>
+                <option key={c} value={c} className="bg-slate-900 text-white">
                   {c}
                 </option>
               ))}
@@ -321,7 +323,7 @@ function PolicyDashboard() {
             <button
               onClick={downloadCsv}
               disabled={!filtered.length}
-              className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-gradient-to-br from-teal-400 to-cyan-500 px-3 text-sm font-medium text-white shadow-[0_8px_24px_-8px_rgba(34,211,238,0.55)] hover:brightness-110 disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
               Export CSV
@@ -330,7 +332,7 @@ function PolicyDashboard() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-6 py-6">
+      <main className="relative z-10 mx-auto max-w-7xl space-y-6 px-6 py-6">
         <GrainientHero
           badge="Open Infrastructure · Live cohort"
           title={`${kpis.n.toLocaleString()} youth profiles, mapped to real economic signals`}
