@@ -1,56 +1,118 @@
-## Premium Login Redesign — "Million-Dollar SaaS" Auth
+## Goal
 
-The current `/login` is a stock mobile form floating on a Galaxy. It doesn't tell the UNMAPPED story, doesn't use the desktop viewport (1336×887), and the inputs/CTAs look like a starter template. Here's the targeted redesign.
+Carry the dark, cinematic energy of the new login into the live app so the jury sees one coherent "million-dollar" product — not a beautiful login that opens into a plain white form. The three screens that decide the demo are:
 
-### What's wrong today
-1. Single narrow column on desktop — wastes 70% of the viewport.
-2. Generic "Welcome to Sawt-Net" headline with no hackathon narrative or proof points.
-3. Inputs use `border-2 border-input bg-background` — opaque white blocks fight with the Galaxy backdrop.
-4. Tiny Sparkles icon doesn't read as a brand.
-5. No social proof, no data visualization, no "infrastructure" framing — jury sees a login form, not a product.
+1. **Chat / mic** (`/`) — the moment of magic. Right now: white bubble UI, decent but generic.
+2. **Results** (`/results`) — the proof. Right now: white card stack, lots of value but visually flat.
+3. **Policy dashboard** (`/policy`) — the infrastructure pitch. Right now: slate/white admin look. Has a Grainient hero already.
 
-### New design — two-pane premium layout
+Plus a small set of shared upgrades that elevate every screen at once.
 
-**Left pane (60% on `md+`, hidden on mobile)** — Brand & narrative
-- Galaxy as full-bleed backdrop (kept, retuned: `hueShift={190}`, `density={1.2}`, `glowIntensity={0.5}`).
-- Top: small wordmark — animated dot + "SAWT-NET" in tracked uppercase, with "UNMAPPED · World Bank Youth Summit" eyebrow.
-- Center: large editorial headline with gradient text — *"Speak your skills. We'll map them to the global economy."* (Plus Jakarta Sans, 800 weight, ~5xl).
-- Sub: one-line value prop grounded in real data: "Voice-first skills profiling for 600M young people the formal economy can't see."
-- Three "proof chips" stacked at bottom: ISCO-08 · ESCO · Frey-Osborne 2017 · ILOSTAT — each with a tiny lucide icon (Layers, Network, Brain, BarChart3). These signal the data-grounded substance.
-- Bottom: "In collaboration with MIT Club of Northern California & Germany" in muted micro-copy.
+All logic, data, Supabase calls, edge functions and routing stay **identical** — this is a visual + motion overhaul.
 
-**Right pane (40% on `md+`, full-width on mobile)** — The auth card
-- A glassmorphic card: `bg-white/8 backdrop-blur-2xl border border-white/15 rounded-3xl` with a subtle inner glow (`shadow-[0_0_120px_-20px_rgba(20,184,166,0.4)]`).
-- Card sits centered vertically, max-width ~440px.
-- Header inside card: brand mark (gradient teal→cyan rounded-2xl tile with `Sparkles`), "Welcome back" (or "Create your account"), one-line sub.
-- Segmented Login/Sign-up toggle restyled: pill background `bg-white/5`, active pill = white-on-teal gradient with soft glow.
-- **Inputs redesigned**: `bg-white/5 backdrop-blur border border-white/10`, white text, muted-white placeholders, focus ring = teal glow + border lift. Floating-label pattern (label slides up on focus/value) for a high-end feel. Icon stays inside.
-- Password input gets an eye-toggle (show/hide) with `Eye`/`EyeOff` lucide icons.
-- Primary CTA: teal→cyan gradient (`from-teal-400 to-cyan-500`), white text, soft glow shadow, subtle scale-on-press, loading spinner replacing text on submit.
-- "or continue with" divider with hairline `bg-white/10`.
-- Google button: glass style matching inputs, no garish white block. Hover lifts border to white/25.
-- Footer micro-copy: terms link + small "← Back to home" link to `/`.
+---
 
-**Mobile (<md)** — only the right pane shows; Galaxy still renders behind, narrative collapses to a compact 3-line hero above the card. The existing `MobileShell` constrains width on mobile, so we'll bypass it on `md+` (use a `min-h-screen` wrapper outside the shell on desktop).
+## 1. Shared design upgrade (one-time)
 
-### Motion & polish
-- Stagger framer-motion entrance: brand wordmark → headline → proof chips → card (each 60ms apart, `y: 12 → 0`, opacity).
-- On mode toggle (login ↔ signup), card content cross-fades with `AnimatePresence` and a tiny height-spring.
-- Subtle floating animation on the brand mark tile (2px y-bob, 4s ease).
-- Respect `prefers-reduced-motion` — disable Galaxy animation + framer transitions when set.
+**New "Aurora" surface tokens in `src/styles.css`** (additive — won't break the existing white skin):
+- `--surface-deep`, `--surface-elev` — near-black slate with a hint of teal.
+- `--surface-glass` + `--surface-glass-border` for glass cards.
+- New `--gradient-aurora`: layered radial gradients in teal + violet over deep slate.
+- Two new utility classes: `.glass-card` (glass background + backdrop-blur + soft inner border + soft outer glow) and `.aurora-bg` (the radial gradient backdrop).
 
-### Typography & color
-- Use the existing Plus Jakarta Sans (already loaded).
-- Headline gradient: `bg-gradient-to-br from-white via-cyan-100 to-teal-300 bg-clip-text text-transparent`.
-- Body text: `text-white/70` for sub, `text-white/50` for micro.
-- Card text: white primary, `text-white/60` secondary.
+**Shared `<AuroraBackdrop />`** (`src/components/AuroraBackdrop.tsx`):
+- Fixed-position layer behind page content.
+- `intensity` prop ("subtle" | "rich").
+- Aurora gradient + faint SVG noise overlay (~3%) to kill banding.
+- Respects `prefers-reduced-motion`.
+- Pure CSS, no WebGL — stays fast on low-end devices (key product claim).
 
-### Files to edit
-- **`src/routes/login.tsx`** — full rewrite of the component (keep the route export, head meta, auth handlers, GoogleIcon untouched). Replace the JSX shell with the two-pane layout described above. Bypass `MobileShell` on `md+` via a custom outer wrapper, keep it on mobile.
+**Shared `<GlassCard />`** (`src/components/GlassCard.tsx`) — thin wrapper used in results + policy.
 
-No new dependencies — `framer-motion`, `lucide-react`, Galaxy, Tailwind, and the design tokens are all in place. No new files needed unless we want to extract `<BrandPanel />` and `<AuthCard />` for cleanliness — I'll inline both in the route file to keep the diff focused (~220 lines total).
+---
 
-### Honest limits
-- Galaxy is WebGL — on very low-end devices it may stutter. The `prefers-reduced-motion` + `disableAnimation` guard handles the worst case; we won't add a static fallback image in this pass (can add later if needed).
-- The two-pane layout assumes `md` breakpoint (≥768px). Below that it's a single elegant column — already covers 320px–767px.
-- I'm not changing the auth logic, Supabase calls, or Google OAuth — purely a visual/UX overhaul.
+## 2. Chat screen (`src/routes/index.tsx`) — "the magic moment"
+
+Make the mic feel like hardware, not a form button.
+
+- Wrap in `<AuroraBackdrop intensity="subtle" />`. Header + chat area become transparent.
+- **Header**: glassmorphic strip (`bg-white/5 backdrop-blur-xl border-b border-white/10`). Sparkles tile keeps its teal→cyan gradient (matches the login). Text becomes white-on-dark.
+- **Bot bubbles**: glass cards with white text. **User bubbles**: keep teal→cyan gradient — pops on dark.
+- **Live transcript bubble**: animated cyan shimmer border so it visibly "listens".
+- **Mic dock**:
+  - Glass panel floating above aurora (`bg-white/5 backdrop-blur-2xl border-t border-white/10`).
+  - Mic button gets a **conic-gradient halo** (replaces the single ripple) — three counter-rotating arcs in teal/cyan/violet that intensify while listening. The "expensive" detail the jury remembers.
+  - Idle state: teal→cyan orb with inner highlight — looks like a polished glass button.
+  - Per-turn language pills: glass style, active = teal gradient with cyan glow.
+- **Analyze FAB**: teal gradient pill with soft cyan halo. While analyzing, a clean three-ring conic spinner replaces `Loader2`.
+- **Onboarding**: not touching its logic, just give the wrapper the aurora background so it doesn't look out of place against the new shell.
+
+---
+
+## 3. Results screen (`src/routes/results.tsx`) — "the proof"
+
+Turn the long card stack into a short, scannable "data dossier".
+
+- Wrap in `<AuroraBackdrop intensity="subtle" />`. Header glassmorphic.
+- **New hero summary card**:
+  - Big AI-resilience score rendered as a **circular SVG gauge** (teal→cyan gradient stroke, animated `stroke-dasharray` on mount). Score number inside.
+  - 3 micro-KPIs in glass chips: `Skills mapped`, `Top opportunity match %`, `Risk band` — all from existing data.
+  - "Real data" badge restyled as glass pill with a tiny pulsing dot.
+- **Skills section**: chips become glass with a thin automation-risk gradient (green→amber→red) on the left edge — turns a tag list into a visual risk fingerprint.
+- **Risk section**: replace the flat horizontal bar with a single thin teal→cyan→amber→red accent line under the score, plus an annotation marker. Less space, more meaning.
+- **Opportunities cards**: glass cards with match % as a small SVG progress ring on the left. Wage chips get a country-flag emoji prefix (`country` already in props).
+- **Education trend**: glass card + tiny inline SVG sparkline showing 2025→2035 share movement. No new dependencies.
+- **CV + Share + Smart Apply CTAs**: grouped into a sticky bottom action bar on mobile, hero-positioned on desktop. Teal gradient primary, glass secondaries.
+
+All `motion` stagger animations stay; only the visual chrome changes.
+
+---
+
+## 4. Policy dashboard (`src/routes/policy.tsx`) — "the infrastructure pitch"
+
+The screen that wins the "infrastructure not app" argument. Make it feel Bloomberg / Stripe Atlas-class.
+
+- Replace `bg-slate-50` with `<AuroraBackdrop intensity="rich" />` — slightly more saturated since this is the showcase.
+- **Header**: glassmorphic; "Policymaker Dashboard" gets the same gradient text as the login headline (`from-white via-cyan-100 to-teal-300`).
+- **Existing `<GrainientHero />`**: keep, retune props to harmonise with the aurora behind it. Add a thin **data sources marquee** beneath it: `ISCO-08 · Frey-Osborne 2017 · ILOSTAT · Wittgenstein 2035 · ESCO v1.2 · ITU` — silently reinforces the data-grounded claim.
+- **KPI cards**: glass cards with large numerals (`text-5xl font-extrabold`) and a small trend indicator. Tone props (`red`, `green`) drive the accent stroke.
+- **`AutomationRiskChart`**: keep Recharts intact, restyle for dark — transparent background, brighter cohort/baseline colours (`#22d3ee` cyan vs `#a78bfa` violet), soft SVG glow filter under each bar.
+- **Skill-supply heatmap**: rows on a glass background, bars in `from-cyan-400 to-violet-500`.
+- **Tables (automation gap, wage gap)**: rebuild on shadcn `<Table>` themed dark — `border-white/10`, hover `bg-white/5`, monospace ISCO codes in subtle pills. Same columns and logic.
+- **Wittgenstein education panel**: small two-point SVG line chart (~80px tall) instead of text-only — visible "trend up to 2035".
+- **Export CSV**: glass primary button with download-icon spinner state.
+- **Access-denied + spinner**: re-themed so polish carries through every code path.
+
+---
+
+## 5. Small polish that punches above its weight
+
+- **Page transitions**: in `__root.tsx`, wrap `<Outlet />` in `framer-motion` `AnimatePresence` with a 220ms fade+slide between routes.
+- **Cursor glow on policy**: 240px radial gradient that follows the cursor inside the dashboard hero. Single throttled listener updating one CSS variable — no per-move React state. Desktop only, opt-out on `prefers-reduced-motion`. A "did they really build this?" moment.
+
+---
+
+## Files I will touch
+
+- `src/styles.css` — add aurora tokens + glass utilities + gradient-text utility. No removals.
+- `src/components/AuroraBackdrop.tsx` — new.
+- `src/components/GlassCard.tsx` — new.
+- `src/components/MobileShell.tsx` — small change so the shell can render on top of the aurora when requested.
+- `src/routes/__root.tsx` — page-transition wrapper.
+- `src/routes/index.tsx` — chat shell + mic dock restyle (no logic changes).
+- `src/routes/results.tsx` — hero gauge + glass cards + sticky action bar (no data changes).
+- `src/routes/policy.tsx` — aurora + glass cards/tables, sources ticker, cursor glow.
+- `src/components/policy/GrainientHero.tsx` — minor prop/colour tuning.
+- `src/components/policy/AutomationRiskChart.tsx` — dark-theme recolour + soft glow.
+
+No new dependencies — `framer-motion`, `lucide-react`, `recharts`, Tailwind v4 and the existing tokens cover everything.
+
+---
+
+## What I'm explicitly NOT doing
+
+- Not touching any Supabase calls, RLS, edge functions, auth, routing, i18n copy, ESCO/ISCO mappings, or Frey-Osborne / ILOSTAT data plumbing.
+- Not adding 3D / WebGL inside the live app. Galaxy stays exclusive to the login so it's a first-impression moment and the working app stays fast on low-end devices — itself a story you can tell the jury.
+- Not touching `OnboardingFlow` internals — only its outer background so it inherits the aurora.
+
+Implementation order once approved: shared tokens/components → chat → results → policy → page transitions, with `tsc --noEmit` after each step.
