@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -23,8 +23,13 @@ import {
 import { toast } from "sonner";
 import { MobileShell } from "@/components/MobileShell";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
-import { CvModal } from "@/components/CvModal";
-import { SmartApplyModal } from "@/components/SmartApplyModal";
+// Heavy modals — only loaded when the user opens them.
+const CvModal = lazy(() =>
+  import("@/components/CvModal").then((m) => ({ default: m.CvModal })),
+);
+const SmartApplyModal = lazy(() =>
+  import("@/components/SmartApplyModal").then((m) => ({ default: m.SmartApplyModal })),
+);
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
