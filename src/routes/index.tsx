@@ -467,12 +467,14 @@ function ChatScreen() {
       <MobileShell transparent>
         <AuroraBackdrop intensity="subtle" />
         <div className="relative z-10 flex flex-1">
-          <OnboardingFlow
-            onComplete={() => {
-              greetedRef.current = false;
-              setOnboarding(false);
-            }}
-          />
+          <Suspense fallback={null}>
+            <OnboardingFlow
+              onComplete={() => {
+                greetedRef.current = false;
+                setOnboarding(false);
+              }}
+            />
+          </Suspense>
         </div>
       </MobileShell>
     );
@@ -750,7 +752,11 @@ function ChatScreen() {
         </div>
       </div>
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        </Suspense>
+      )}
     </MobileShell>
   );
 }
