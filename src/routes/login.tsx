@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail,
@@ -18,7 +18,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
-import Galaxy from "@/components/Galaxy";
+// Galaxy is the single biggest JS chunk on the login page (ogl + WebGL shader).
+// Lazy-load it so the form is interactive immediately; the starfield streams in.
+const Galaxy = lazy(() => import("@/components/Galaxy"));
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -46,6 +48,15 @@ function LoginScreen() {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }, []);
+
+  // Skip the WebGL Galaxy on small screens / low-power devices entirely.
+  // Saves ~70KB JS + a continuous fragment shader; the CSS gradient looks great alone.
+  const enableGalaxy = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    if (reduceMotion) return false;
+    if (window.innerWidth < 768) return false;
+    return true;
+  }, [reduceMotion]);
 
   const getPostLoginRoute = async (
     currentUser: { id: string; email?: string | null } | null,
