@@ -445,7 +445,9 @@ function PolicyDashboard() {
             </Card>
 
             {/* Hero chart: Frey-Osborne vs cohort, grouped bars */}
-            <AutomationRiskChart data={automationByMajor} />
+            <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-white/5" />}>
+              <AutomationRiskChart data={automationByMajor} />
+            </Suspense>
 
             {/* Automation cohort vs Frey-Osborne baseline */}
             <Card
