@@ -191,7 +191,10 @@ export default function Galaxy({
     if (!ctnDom.current) return;
     const ctn = ctnDom.current;
 
-    const renderer = new Renderer({ alpha: transparent, premultipliedAlpha: false });
+    // Clamp DPR to 1.5: full retina (2-3) doubles/triples fragment shader cost
+    // for negligible visual gain on a starfield. Big perf win on phones/laptops.
+    const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 1.5);
+    const renderer = new Renderer({ alpha: transparent, premultipliedAlpha: false, dpr });
     const gl = renderer.gl;
     if (transparent) {
       gl.enable(gl.BLEND);
