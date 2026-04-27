@@ -44,6 +44,16 @@ export const Route = createRootRoute({
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2847f16b-87bb-438b-b9d4-314832d8273f" },
     ],
     links: [
+      // DNS warmup for the backend so the first auth/data call is faster.
+      { rel: "dns-prefetch", href: "https://pfdtywytvvzlnkruaido.supabase.co" },
+      { rel: "preconnect", href: "https://pfdtywytvvzlnkruaido.supabase.co", crossOrigin: "" },
+      // Self-host-style font preload: parallel + non-blocking, only weights we use.
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap",
+      },
       {
         rel: "stylesheet",
         href: appCss,
