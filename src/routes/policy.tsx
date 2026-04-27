@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   BarChart3,
@@ -24,7 +24,12 @@ import {
   iscoMajor,
 } from "@/lib/econ-baselines";
 import { GrainientHero } from "@/components/policy/GrainientHero";
-import { AutomationRiskChart } from "@/components/policy/AutomationRiskChart";
+// Recharts is ~95KB gzipped — lazy-load so the dashboard above the fold paints fast.
+const AutomationRiskChart = lazy(() =>
+  import("@/components/policy/AutomationRiskChart").then((m) => ({
+    default: m.AutomationRiskChart,
+  })),
+);
 
 export const Route = createFileRoute("/policy")({
   head: () => ({
