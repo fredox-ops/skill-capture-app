@@ -667,15 +667,14 @@ function ChatScreen() {
               className="flex flex-col items-center gap-3"
             >
               <div className="relative flex h-24 w-24 items-center justify-center">
-                {/* Counter-rotating conic halos behind the listening mic. */}
-                <span
-                  className={`mic-conic ${listening && !micWarning && !micError ? "active" : ""}`}
-                  aria-hidden="true"
-                />
-                <span
-                  className={`mic-conic layer-2 ${listening && !micWarning && !micError ? "active" : ""}`}
-                  aria-hidden="true"
-                />
+                {/* Conic halos only mounted while recording — they animate
+                    even when transparent, so unmounting saves real CPU. */}
+                {listening && !micWarning && !micError && (
+                  <>
+                    <span className="mic-conic active" aria-hidden="true" />
+                    <span className="mic-conic layer-2 active" aria-hidden="true" />
+                  </>
+                )}
                 <motion.button
                   onPointerDown={handleHoldStart}
                   onPointerUp={handleHoldEnd}
