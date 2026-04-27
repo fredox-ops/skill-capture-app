@@ -676,36 +676,44 @@ function ResultsContent({
         </Section>
       </motion.div>
 
-      <CvModal
-        open={cvOpen}
-        onClose={() => setCvOpen(false)}
-        copy={copy}
-        dir={dir}
-        displayName={displayName}
-        country={country}
-        skills={enrichedSkills}
-        opportunities={enrichedJobs.map(({ job_title, match_percent, local_wage }) => ({
-          job_title,
-          match_percent,
-          local_wage,
-        }))}
-        aiScore={analysis.ai_score}
-        transcript={transcript}
-      />
+      {cvOpen && (
+        <Suspense fallback={null}>
+          <CvModal
+            open={cvOpen}
+            onClose={() => setCvOpen(false)}
+            copy={copy}
+            dir={dir}
+            displayName={displayName}
+            country={country}
+            skills={enrichedSkills}
+            opportunities={enrichedJobs.map(({ job_title, match_percent, local_wage }) => ({
+              job_title,
+              match_percent,
+              local_wage,
+            }))}
+            aiScore={analysis.ai_score}
+            transcript={transcript}
+          />
+        </Suspense>
+      )}
 
-      <SmartApplyModal
-        open={!!applyJob}
-        onClose={() => setApplyJob(null)}
-        copy={copy}
-        dir={dir}
-        language={language}
-        country={country}
-        displayName={displayName}
-        jobTitle={applyJob?.job_title ?? ""}
-        localWage={applyJob?.local_wage ?? ""}
-        skills={enrichedSkills}
-        transcript={transcript}
-      />
+      {applyJob && (
+        <Suspense fallback={null}>
+          <SmartApplyModal
+            open={!!applyJob}
+            onClose={() => setApplyJob(null)}
+            copy={copy}
+            dir={dir}
+            language={language}
+            country={country}
+            displayName={displayName}
+            jobTitle={applyJob?.job_title ?? ""}
+            localWage={applyJob?.local_wage ?? ""}
+            skills={enrichedSkills}
+            transcript={transcript}
+          />
+        </Suspense>
+      )}
     </>
   );
 }
