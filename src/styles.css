@@ -2,8 +2,8 @@
 @source "../src";
 @import "tw-animate-css";
 
-/* Plus Jakarta Sans — modern geometric sans for a premium SaaS look */
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+/* Plus Jakarta Sans is loaded via <link rel="preload"> in __root.tsx
+   (faster than @import which is render-blocking and serial). */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -238,30 +238,23 @@
       radial-gradient(at 70% 75%, oklch(0.55 0.22 320 / 0.22), transparent 55%),
       oklch(0.14 0.04 255);
   }
-  .aurora-bg.animated::before {
-    content: "";
-    position: absolute;
-    inset: -20%;
-    background: inherit;
-    filter: blur(40px);
-    animation: aurora-drift 22s ease-in-out infinite;
-  }
-  @keyframes aurora-drift {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-    50%      { transform: translate3d(2%, -1%, 0) scale(1.04); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .aurora-bg.animated::before { animation: none; }
-  }
+  /* Removed the previously-animated ::before blur layer.
+     `filter: blur(40px)` over a fullscreen fixed div repaints every frame and
+     was the single biggest scroll-jank source. The static gradient stack above
+     looks identical at rest. */
   .aurora-noise {
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    opacity: 0.035;
-    mix-blend-mode: overlay;
+    opacity: 0.03;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
     background-size: 180px 180px;
+  }
+  /* Skip the noise overlay on small screens — extra compositor layer not
+     worth it on phones where it's barely visible. */
+  @media (max-width: 767px) {
+    .aurora-noise { display: none; }
   }
 
   .glass-card {
@@ -346,6 +339,9 @@
     gap: 2rem;
     animation: sources-scroll 38s linear infinite;
     white-space: nowrap;
+    /* Pause work when the marquee is scrolled off-screen */
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 60px;
   }
   @keyframes sources-scroll {
     from { transform: translateX(0); }
