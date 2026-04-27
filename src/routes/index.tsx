@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check,
@@ -18,9 +18,14 @@ import {
 
 import { MobileShell } from "@/components/MobileShell";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
-import { SettingsModal } from "@/components/SettingsModal";
+// Heavy modal/flow components — only loaded when actually opened.
+const SettingsModal = lazy(() =>
+  import("@/components/SettingsModal").then((m) => ({ default: m.SettingsModal })),
+);
+const OnboardingFlow = lazy(() =>
+  import("@/components/OnboardingFlow").then((m) => ({ default: m.OnboardingFlow })),
+);
 import { AudioWave } from "@/components/AudioWave";
-import { OnboardingFlow } from "@/components/OnboardingFlow";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
