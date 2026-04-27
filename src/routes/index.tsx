@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check,
@@ -18,9 +18,14 @@ import {
 
 import { MobileShell } from "@/components/MobileShell";
 import { AuroraBackdrop } from "@/components/AuroraBackdrop";
-import { SettingsModal } from "@/components/SettingsModal";
+// Heavy modal/flow components — only loaded when actually opened.
+const SettingsModal = lazy(() =>
+  import("@/components/SettingsModal").then((m) => ({ default: m.SettingsModal })),
+);
+const OnboardingFlow = lazy(() =>
+  import("@/components/OnboardingFlow").then((m) => ({ default: m.OnboardingFlow })),
+);
 import { AudioWave } from "@/components/AudioWave";
-import { OnboardingFlow } from "@/components/OnboardingFlow";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -462,12 +467,14 @@ function ChatScreen() {
       <MobileShell transparent>
         <AuroraBackdrop intensity="subtle" />
         <div className="relative z-10 flex flex-1">
-          <OnboardingFlow
-            onComplete={() => {
-              greetedRef.current = false;
-              setOnboarding(false);
-            }}
-          />
+          <Suspense fallback={null}>
+            <OnboardingFlow
+              onComplete={() => {
+                greetedRef.current = false;
+                setOnboarding(false);
+              }}
+            />
+          </Suspense>
         </div>
       </MobileShell>
     );
@@ -660,15 +667,14 @@ function ChatScreen() {
               className="flex flex-col items-center gap-3"
             >
               <div className="relative flex h-24 w-24 items-center justify-center">
-                {/* Counter-rotating conic halos behind the listening mic. */}
-                <span
-                  className={`mic-conic ${listening && !micWarning && !micError ? "active" : ""}`}
-                  aria-hidden="true"
-                />
-                <span
-                  className={`mic-conic layer-2 ${listening && !micWarning && !micError ? "active" : ""}`}
-                  aria-hidden="true"
-                />
+                {/* Conic halos only mounted while recording — they animate
+                    even when transparent, so unmounting saves real CPU. */}
+                {listening && !micWarning && !micError && (
+                  <>
+                    <span className="mic-conic active" aria-hidden="true" />
+                    <span className="mic-conic layer-2 active" aria-hidden="true" />
+                  </>
+                )}
                 <motion.button
                   onPointerDown={handleHoldStart}
                   onPointerUp={handleHoldEnd}
@@ -745,7 +751,11 @@ function ChatScreen() {
         </div>
       </div>
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        </Suspense>
+      )}
     </MobileShell>
   );
 }
